@@ -1,24 +1,24 @@
 """
-photonic_mzi.animation — 中英双语 MZI 教学动画 / bilingual MZI teaching animation
+photonic_mzi.animation — bilingual MZI teaching animation / 中英双语 MZI 教学动画
 =========================================================
 左边显示执行代码，右边显示光路行为。The left panel shows executing code;
 the right panel shows the corresponding optical behavior. Nine stages:
 
-    0 核心/Core  1 SVD  2 编译/Compile  3 注入/Input  4 V^T mesh
-    5 Σ scale    6 U mesh  7 探测/Readout  8 非理想/Errors
+    0 Core/核心  1 SVD  2 Compile/编译  3 Input/注入  4 V^T mesh
+    5 Σ scale    6 U mesh  7 Readout/探测  8 Errors/非理想
 
-用法 / Usage
+Usage / 用法
 ------------
-    python -m photonic_mzi                 # 交互 / interactive
-    python -m photonic_mzi --save mzi.gif  # 导出 / export GIF
-    python -m photonic_mzi -n 5            # 随机矩阵 / random 5x5 matrix
+    python -m photonic_mzi                 # interactive / 交互
+    python -m photonic_mzi --save mzi.gif  # export GIF / 导出
+    python -m photonic_mzi -n 5            # random 5x5 matrix / 随机矩阵
 
-交互键 / Controls
+Controls / 交互键
 -----------------
-    Space  暂停 / pause
-    ← →    单步 / step
-    , .    阶段 / stage
-    r      重播 / restart
+    Space  pause / 暂停
+    ← →    step / 单步
+    , .    stage / 阶段
+    r      restart / 重播
 """
 from __future__ import annotations
 
@@ -40,7 +40,7 @@ _INSTALLED_FONTS = {font.name for font in font_manager.fontManager.ttflist}
 
 
 def _pick_font(*candidates: str) -> str:
-    """选择当前平台已安装的第一个字体。Pick the first installed font."""
+    """Pick the first installed font. / 选择当前平台已安装的第一个字体。"""
     return next((name for name in candidates if name in _INSTALLED_FONTS), "DejaVu Sans")
 
 
@@ -50,9 +50,9 @@ CN_FONT = _pick_font(
     "WenQuanYi Zen Hei", "Arial Unicode MS",
 )
 MONO_FONT = _pick_font(
-    "Consolas", "Noto Sans Mono CJK SC", "Noto Sans Mono CJK JP",
-    "Sarasa Mono SC", "Microsoft YaHei", "Noto Sans CJK SC",
-    "Noto Sans CJK JP", "PingFang SC",
+    "Noto Sans Mono CJK SC", "Noto Sans Mono CJK JP", "Sarasa Mono SC",
+    "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans CJK JP", "PingFang SC",
+    "Hiragino Sans GB", "SimHei", "Consolas",
 )
 CN = [CN_FONT]
 MONO = [MONO_FONT]
@@ -94,94 +94,94 @@ SNIPPETS = {
     "svd": ("photonic_mzi/processor.py  ·  PhotonicMatrixProcessor.__init__", [
         "class PhotonicMatrixProcessor:",
         "    def __init__(self, M):",
-        "        self.N = max(M.shape)         # 模式数 / mode count",
-        "        Mp = zero_pad(M, self.N)      # 补方阵 / pad square",
+        "        self.N = max(M.shape)         # mode count / 模式数",
+        "        Mp = zero_pad(M, self.N)      # pad square / 补方阵",
         "",
-        "        # 任意实矩阵 / any real M = orthogonal · scale · orthogonal",
+        "        # any real M / 任意实矩阵 = orthogonal · scale · orthogonal",
         "        U, S, Vt = np.linalg.svd(Mp)",
         "",
-        "        self.gain   = S[0]            # VOA 仅衰减 / attenuation only",
-        "        self.S_phys = S / self.gain   # 归一化 / normalize [0, 1]",
+        "        self.gain   = S[0]            # attenuation only / VOA 仅衰减",
+        "        self.S_phys = S / self.gain   # normalize / 归一化 [0, 1]",
         "",
-        "        # 编译两张网格 / compile two MZI meshes",
+        "        # compile two MZI meshes / 编译两张网格",
         "        self.vt_mzis, self.vt_phases = decompose_unitary(Vt)",
         "        self.u_mzis,  self.u_phases  = decompose_unitary(U)",
     ]),
     "compile": ("photonic_mzi/mesh.py  ·  decompose_unitary", [
         "def decompose_unitary(U):",
         "    N = U.shape[0]",
-        "    A = U.copy()          # 消元并记录 / eliminate and record",
+        "    A = U.copy()          # eliminate and record / 消元并记录",
         "    elim = []",
         "",
         "    for col in range(N - 1):",
         "        for row in range(N - 1, col, -1):",
-        "            m = row - 1           # 占用模式 / modes m, m+1",
+        "            m = row - 1           # modes / 占用模式 m, m+1",
         "            x, y = A[m, col], A[row, col]",
         "",
-        "            # 解 theta,phi / solve for destructive interference",
+        "            # solve theta,phi for destructive interference / 解方程",
         "            phi   = angle(y) - angle(x) - pi",
         "            theta = arctan2(abs(x), abs(y))",
         "",
-        "            apply_T_left(A, m, theta, phi)   # 更新两行 / update 2 rows",
+        "            apply_T_left(A, m, theta, phi)   # update 2 rows / 更新两行",
         "            elim.append((m, theta, phi))",
         "",
-        "    return elim, np.diag(A)   # 对角化 / diagonalized",
+        "    return elim, np.diag(A)   # diagonalized / 对角化",
     ]),
-    "forward": ("photonic_mzi/processor.py  ·  optical_field  （传播 / propagation）", [
+    "forward": ("photonic_mzi/processor.py  ·  optical_field  (propagation / 传播)", [
         "def optical_field(self, x):",
-        "    E = pad(x)                     # 光场 / complex field",
+        "    E = pad(x)                     # complex field / 光场",
         "",
-        "    # ---- 阶段/stage 1：V^T 酉网格 / unitary mesh ----",
-        "    E = E * self.vt_phases         # N 个移相器 / phase shifters",
+        "    # ---- stage/阶段 1: V^T unitary mesh / 酉网格 ----",
+        "    E = E * self.vt_phases         # N phase shifters / 移相器",
         "    for z in self.vt_mzis:",
         "        apply_T_dagger_left(E, z.mode, z.theta, z.phi)",
         "",
-        "    # ---- 阶段/stage 2：Sigma 衰减 / attenuation ----",
-        "    E = E * self.S_phys            # 通道衰减 / channel scaling",
+        "    # ---- stage/阶段 2: Sigma attenuation / 衰减 ----",
+        "    E = E * self.S_phys            # channel scaling / 通道衰减",
         "",
-        "    # ---- 阶段/stage 3：U 酉网格 / unitary mesh ----",
+        "    # ---- stage/阶段 3: U unitary mesh / 酉网格 ----",
         "    E = E * self.u_phases",
         "    for z in self.u_mzis:",
         "        apply_T_dagger_left(E, z.mode, z.theta, z.phi)",
         "",
-        "    return E[:n_out]               # 探测前场 / pre-detection field",
+        "    return E[:n_out]               # pre-detection field / 探测前场",
     ]),
-    "mzi": ("photonic_mzi/mesh.py  ·  apply_T_dagger_left  （单台 / one MZI）", [
+    "mzi": ("photonic_mzi/mesh.py  ·  apply_T_dagger_left  (one MZI / 单台)", [
         "def apply_T_dagger_left(E, m, theta, phi, amp=1.0):",
-        "    s, c = sin(theta), cos(theta)   # 分光比 / splitting",
-        "    e    = exp(-1j * phi)           # 相对相位 / relative phase",
+        "    s, c = sin(theta), cos(theta)   # splitting / 分光比",
+        "    e    = exp(-1j * phi)           # relative phase / 相对相位",
         "",
-        "    a, b = E[m], E[m + 1]           # 输入光场 / input fields",
+        "    a, b = E[m], E[m + 1]           # input fields / 输入光场",
         "",
-        "    # 3dB 耦合 / coupling：同相相长，反相相消 / interfere",
+        "    # 3dB coupling / 耦合: constructive or destructive interference / 干涉",
         "    E[m]     = amp * e * (-s * a + c * b)",
         "    E[m + 1] = amp *     ( c * a + s * b)",
     ]),
-    "detect": ("photonic_mzi/processor.py  ·  读出 / readout", [
-        "    # 相干探测 / coherent：带符号实部 / signed real part",
+    "detect": ("photonic_mzi/processor.py  ·  readout / 读出", [
+        "    # coherent / 相干探测: signed real part / 带符号实部",
         "    y = self.gain * np.real(E[:n_out])",
-        "    y = add_readout_noise(y)       # 探测后噪声 / post-detection noise",
+        "    y = add_readout_noise(y)       # post-detection noise / 探测后噪声",
         "",
-        "    # 直接探测 / direct detection：|E|^2，丢符号 / sign lost",
+        "    # direct detection / 直接探测: |E|^2, sign lost / 丢符号",
         "    # y = self.gain**2 * np.abs(E[:n_out]) ** 2",
         "",
-        "    assert np.allclose(y, M @ x)    # 浮点误差内一致 / within FP error",
+        "    assert np.allclose(y, M @ x)    # within FP error / 浮点误差内一致",
     ]),
-    "noise": ("photonic_mzi/processor.py  ·  NoiseModel  （敏感度 / sensitivity）", [
+    "noise": ("photonic_mzi/processor.py  ·  NoiseModel  (sensitivity / 敏感度)", [
         "nz = NoiseModel(",
-        "    fab_theta = 0.02,      # 固定偏置 / static offset",
-        "    drift_theta = 0.005,   # 每样本抖动 / per-sample jitter",
-        "    mzi_loss_db = 0.2,     # 插损 / insertion loss",
-        "    voa_rel_err = 0.01,    # VOA 设定误差 / setting error",
-        "    detector_snr_db = 40,  # 探测后噪声 / readout AWGN",
+        "    fab_theta = 0.02,      # static offset / 固定偏置",
+        "    drift_theta = 0.005,   # per-sample jitter / 每样本抖动",
+        "    mzi_loss_db = 0.2,     # insertion loss / 插损",
+        "    voa_rel_err = 0.01,    # setting error / VOA 设定误差",
+        "    detector_snr_db = 40,  # readout AWGN / 探测后噪声",
         ")",
         "y = opu.read_coherent(x, ideal=False)",
     ]),
 }
 
-STAGES = ["0 核心/Core", "1 SVD", "2 编译/Compile", "3 注入/Input",
-          "4 V^T 网格/Mesh", "5 Σ 衰减/Scale", "6 U 网格/Mesh",
-          "7 探测/Readout", "8 非理想/Errors"]
+STAGES = ["0 Core/核心", "1 SVD", "2 Compile/编译", "3 Input/注入",
+          "4 V^T Mesh/网格", "5 Σ Scale/衰减", "6 U Mesh/网格",
+          "7 Readout/探测", "8 Non-idealities/非理想"]
 
 
 # --------------------------------------------------------------------------- #
@@ -215,10 +215,13 @@ class ChipLayout:
 # 脚本：把整个流程编成一串帧
 # --------------------------------------------------------------------------- #
 def build_script(opu, M, x, geo):
-    """返回 list[dict]，每个 dict 完整描述一帧要画什么。"""
+    """Build complete frame descriptions. / 构建完整逐帧描述。"""
     F = []
 
     def add(n, **kw):
+        if "narr" in kw:
+            chinese, english = kw["narr"].split("\n", 1)
+            kw["narr"] = f"{english}\n{chinese}"
         for i in range(n):
             F.append(dict(kw, _i=i, _n=n))
 
@@ -469,18 +472,18 @@ class Renderer:
             for f, lab in [(0.0, "-180°"), (0.5, "0°"), (1.0, "+180°")]:
                 ax.text(0.05 + f * 0.60, yb - 0.040, lab, fontsize=7.5,
                         color=DIM, ha="center", va="center")
-            ax.text(0.05, yb + 0.042, "颜色 = 相位 / Color = phase", fontsize=9,
+            ax.text(0.05, yb + 0.042, "Color = phase / 颜色 = 相位", fontsize=9,
                     color=DIM, family=CN, va="center")
         if not full:
             return
 
         # --- 其上：芯片规格 ---
         rows = [
-            ("模式 / modes", f"{opu.N}"),
-            ("MZI 总数 / count", f"{len(opu.vt_mzis) + len(opu.u_mzis)} = 2×N(N-1)/2"),
-            ("网格深度 / depth", f"V^T {g.dv} + U {g.du}"),
-            ("模式参与 / participation", f"{opu.mode_mzi_count().tolist()}"),
-            ("奇异值 / singular σ", np.array2string(opu.S_target, precision=2)),
+            ("Modes / 模式", f"{opu.N}"),
+            ("MZI count / 总数", f"{len(opu.vt_mzis) + len(opu.u_mzis)} = 2×N(N-1)/2"),
+            ("Mesh depth / 网格深度", f"V^T {g.dv} + U {g.du}"),
+            ("Mode participation / 模式参与", f"{opu.mode_mzi_count().tolist()}"),
+            ("Singular values σ / 奇异值", np.array2string(opu.S_target, precision=2)),
         ]
         y0 = yb + 0.10
         for k, (a, b) in enumerate(rows):
@@ -488,7 +491,7 @@ class Renderer:
             ax.text(0.05, yy, a, fontsize=8.8, color=DIM, family=CN, va="center")
             ax.text(0.45, yy, b, fontsize=8.8, color="#c3cddd", family=MONO, va="center")
         yh = y0 + len(rows) * 0.037
-        ax.text(0.04, yh, "编译结果 / Compiled circuit", fontsize=10.2, color=VIOLET,
+        ax.text(0.04, yh, "Compiled circuit / 编译结果", fontsize=10.2, color=VIOLET,
                 family=CN, va="center")
         ax.plot([0.03, 0.97], [yh + 0.035, yh + 0.035], color="#243049", lw=1)
 
@@ -541,9 +544,9 @@ class Renderer:
 
         # 区块底色
         for xa, xb, c, name in [
-            (g.x_vt_ph - 0.55, g.x_vt(g.dv - 1) + 0.55, "#16233d", "V$^T$ 酉网格 / unitary mesh"),
-            (g.x_voa - 0.45, g.x_voa + 0.45, "#2a1f3d", "Σ 衰减 / attenuation"),
-            (g.x_u_ph - 0.5, g.x_u(g.du - 1) + 0.55, "#16233d", "U 酉网格 / unitary mesh"),
+            (g.x_vt_ph - 0.55, g.x_vt(g.dv - 1) + 0.55, "#16233d", "V$^T$ unitary mesh / 酉网格"),
+            (g.x_voa - 0.45, g.x_voa + 0.45, "#2a1f3d", "Σ attenuation / 衰减"),
+            (g.x_u_ph - 0.5, g.x_u(g.du - 1) + 0.55, "#16233d", "U unitary mesh / 酉网格"),
         ]:
             ax.add_patch(Rectangle((xa, -0.62), xb - xa, N - 0.05,
                                    facecolor=c, edgecolor="#243049", lw=1, zorder=0))
@@ -638,9 +641,9 @@ class Renderer:
             if m < opu.n_out:
                 ax.text(g.x_out + 0.30, g.y(m), f"y{m}", ha="left", va="center",
                         fontsize=9.5, color=GREEN)
-        ax.text(g.x_in - 0.28, N - 0.35, "相干输入\ncoherent input", ha="right", va="center",
+        ax.text(g.x_in - 0.28, N - 0.35, "coherent input\n相干输入", ha="right", va="center",
                 fontsize=9, color=DIM, family=CN)
-        ax.text(g.x_out + 0.30, N - 0.35, "光电探测\ndetection", ha="left", va="center",
+        ax.text(g.x_out + 0.30, N - 0.35, "detection\n光电探测", ha="left", va="center",
                 fontsize=9, color=DIM, family=CN)
 
     # ---------- MZI 参数表（编译阶段用） ----------
@@ -656,9 +659,9 @@ class Renderer:
         elim = list(reversed(opu.vt_mzis))          # 按消元顺序列出
         n = len(elim)
 
-        ax.text(0.03, 0.90, "V$^T$ MZI 参数 / parameters　（矩阵 → 硬件 / matrix → hardware）",
+        ax.text(0.03, 0.90, "V$^T$ MZI parameters / 参数  (matrix → hardware / 矩阵 → 硬件)",
                 fontsize=11, color=VIOLET, family=CN, va="center")
-        heads = ["MZI", "波导/modes", "θ 内相移/internal", "φ 外相移/external", "分光比/split cos²θ"]
+        heads = ["MZI", "modes/波导", "θ internal/内相移", "φ external/外相移", "split/分光比 cos²θ"]
         cols = [0.05, 0.17, 0.34, 0.52, 0.72]
         for c, h in zip(cols, heads, strict=True):
             ax.text(c, 0.74, h, fontsize=9.5, color=DIM, family=CN, va="center")
@@ -681,7 +684,7 @@ class Renderer:
             for c, v in zip(cols, vals, strict=True):
                 ax.text(c, y, v, fontsize=9.5, family=MONO,
                         color=AMBER if i == placed - 1 else col, va="center", zorder=2)
-        ax.text(0.03, 0.06, f"已锁定 / programmed {placed}/{n}　（U mesh: {len(opu.u_mzis)}）",
+        ax.text(0.03, 0.06, f"Programmed / 已锁定 {placed}/{n}  (U mesh: {len(opu.u_mzis)})",
                 fontsize=9.5, color=GREEN if placed == n else DIM, family=CN, va="center")
 
     # ---------- 光场柱状图 ----------
@@ -710,11 +713,11 @@ class Renderer:
             ax.text(i, amp[i] + 0.045, f"{np.abs(E[i]):.2f}∠{np.degrees(np.angle(E[i])):.0f}°",
                     ha="center", va="bottom", fontsize=7.6, color=FG)
         ax.set_xticks(idx)
-        ax.set_xticklabels([f"模式/mode {i}" for i in idx], family=CN, fontsize=8.5)
+        ax.set_xticklabels([f"mode/模式 {i}" for i in idx], family=CN, fontsize=8.5)
         ax.set_ylim(min(-0.15, np.real(E).min() * 1.35), max(amp.max() * 1.55, 0.5))
-        ax.set_ylabel("光场 / field |E|", color=DIM, family=CN, fontsize=9.5)
-        ax.set_title(f"当前光场 / Current field（柱高/amplitude，颜色/phase，白点/Re(E)）   "
-                     f"总光强 / total Σ|E|² = {np.sum(amp**2):.4f}",
+        ax.set_ylabel("Field / 光场 |E|", color=DIM, family=CN, fontsize=9.5)
+        ax.set_title(f"Current field / 当前光场 (height/amplitude, color/phase, white dot/Re(E))   "
+                     f"total / 总光强 Σ|E|² = {np.sum(amp**2):.4f}",
                      color=FG, family=CN, fontsize=10.5, pad=6)
 
     # ---------- 数学面板 ----------
@@ -737,24 +740,24 @@ class Renderer:
         st = fr["stage"]
         if st == 0:
             k = fr.get("intro", 0)
-            self.draw_matrix(ax, M, 0.045, ytop, ch, "M 权重 / weights", zeros=False)
+            self.draw_matrix(ax, M, 0.045, ytop, ch, "M weights / 权重", zeros=False)
             bx = 0.045 + M.shape[1] * cw
             if k >= 1:
                 ax.text(bx + 0.022, ymid, "×", fontsize=16, color=FG, va="center", ha="center")
-                self.draw_matrix(ax, x, bx + 0.045, ytop, ch, "x 输入 / input", zeros=False)
+                self.draw_matrix(ax, x, bx + 0.045, ytop, ch, "x input / 输入", zeros=False)
                 bx = bx + 0.045 + cw
             if k >= 2:
                 ax.text(bx + 0.022, ymid, "=", fontsize=16, color=FG, va="center", ha="center")
-                self.draw_matrix(ax, M @ x, bx + 0.045, ytop, ch, "y 输出 / output", zeros=False)
+                self.draw_matrix(ax, M @ x, bx + 0.045, ytop, ch, "y output / 输出", zeros=False)
             if k >= 3:
                 ax.text(0.46, 0.62, "M  =  U · Σ · V$^T$", fontsize=22, color=AMBER,
                         family=CN, va="center")
-                ax.text(0.46, 0.34, "正交变换 → 缩放 → 正交变换\northogonal transform → scale → orthogonal transform",
+                ax.text(0.46, 0.34, "orthogonal transform → scale → orthogonal transform\n正交变换 → 缩放 → 正交变换",
                         fontsize=12.5, color=DIM, family=CN, va="center", linespacing=1.6)
             else:
-                ax.text(0.46, 0.5, f"数字执行 / digital: {M.size} multiplies + "
+                ax.text(0.46, 0.5, f"digital / 数字执行: {M.size} multiplies + "
                                    f"{M.size - M.shape[0]} adds\n"
-                                   "光学映射 / optical mapping: one programmed propagation",
+                                   "optical mapping / 光学映射: one programmed propagation",
                         fontsize=12.5, color=DIM, family=CN, va="center", linespacing=1.6)
 
         elif st == 1:
@@ -763,13 +766,13 @@ class Renderer:
             ax.text(0.03 + w + 0.021, ymid, "=", fontsize=15, color=FG,
                     va="center", ha="center")
             xs = 0.03 + w + 0.042
-            self.draw_matrix(ax, opu.U_target, xs, ytop, ch, "U (正交/orthogonal)", zeros=False)
+            self.draw_matrix(ax, opu.U_target, xs, ytop, ch, "U (orthogonal/正交)", zeros=False)
             xs2 = xs + w + 0.042
             ax.text(xs + w + 0.021, ymid, "·", fontsize=15, color=FG, va="center", ha="center")
-            self.draw_matrix(ax, np.diag(opu.S_target), xs2, ytop, ch, "Σ (对角/diagonal)")
+            self.draw_matrix(ax, np.diag(opu.S_target), xs2, ytop, ch, "Σ (diagonal/对角)")
             xs3 = xs2 + w + 0.042
             ax.text(xs2 + w + 0.021, ymid, "·", fontsize=15, color=FG, va="center", ha="center")
-            self.draw_matrix(ax, opu.Vt_target, xs3, ytop, ch, "V$^T$ (正交/orthogonal)", zeros=False)
+            self.draw_matrix(ax, opu.Vt_target, xs3, ytop, ch, "V$^T$ (orthogonal/正交)", zeros=False)
             # 高亮当前正在讲的那一块
             spans = {1: (xs3, w, CYAN), 2: (xs2, w, VIOLET), 3: (xs, w, GREEN)}
             if k in spans:
@@ -778,28 +781,28 @@ class Renderer:
                                        sw + 0.018, N * ch + 0.105, fill=False,
                                        edgecolor=sc, lw=2.2, zorder=6))
             notes = {
-                0: ("任意实矩阵都有 SVD / Every real matrix has an SVD; factors may be non-unique", FG),
-                1: ("V$^T$·V = I：保持长度，可含反射 / norm-preserving, may include reflection → lossless mesh", CYAN),
-                2: ("Σ 仅对角非零 / diagonal only → independent attenuation with one VOA bank", VIOLET),
-                3: ("U 是第二个正交变换 / second orthogonal transform → second interference mesh", GREEN),
+                0: ("Every real matrix has an SVD; factors may be non-unique / 任意实矩阵都有 SVD", FG),
+                1: ("V$^T$·V = I: norm-preserving, may reflect → lossless mesh / 保持长度，可含反射", CYAN),
+                2: ("Σ: diagonal only → one VOA bank / 仅对角非零", VIOLET),
+                3: ("U: second orthogonal transform → second mesh / 第二个正交变换", GREEN),
                 4: (f"σ = {np.array2string(opu.S_target, precision=3)}   →   "
                     f"σ/σmax = {np.array2string(opu.S_phys, precision=3)}   "
-                     f"电域增益 / electrical gain ×{opu.gain:.3f}", VIOLET),
+                     f"electrical gain / 电域增益 ×{opu.gain:.3f}", VIOLET),
             }
             txt, col = notes[k]
             ax.text(0.03, 0.10, txt, fontsize=11, color=col, family=CN, va="center")
 
         elif st == 2:
             c = fr["comp"]
-            self.draw_matrix(ax, c["A"], 0.035, ytop, ch, "消元 / eliminating V$^T$",
+            self.draw_matrix(ax, c["A"], 0.035, ytop, ch, "Eliminating V$^T$ / 消元",
                              highlight=c.get("target"), pair=c.get("pair"))
             z = c.get("z")
             bx = 0.035 + w + 0.055
-            ax.text(bx, ytop - 0.02, "消元 / Eliminate lower element by interference", fontsize=11,
+            ax.text(bx, ytop - 0.02, "Eliminate lower element by interference / 消元", fontsize=11,
                     color=VIOLET, family=CN, va="top")
             ax.text(bx, ytop - 0.30, "e$^{iφ}$·cosθ·x  +  sinθ·y  =  0",
                     fontsize=14, color=FG, va="center")
-            ax.text(bx, ytop - 0.58, "橙框/orange = target → 0\n蓝框/blue = paired upper element",
+            ax.text(bx, ytop - 0.58, "orange/橙框 = target → 0\nblue/蓝框 = paired upper element",
                     fontsize=10, color=DIM, family=CN, va="center", linespacing=1.5)
             if z is not None:
                 T = mzi_transfer_matrix(z.theta, z.phi)
@@ -810,14 +813,14 @@ class Renderer:
                         f"T = [{T[0,0].real:+.2f}{T[0,1].real:+.2f}]\n"
                         f"    [{T[1,0].real:+.2f}{T[1,1].real:+.2f}]",
                         fontsize=9.5, color="#9fb3d9", family=MONO, va="center")
-            ax.text(0.035, 0.06, f"已确定 / programmed {c['placed']}/{len(opu.vt_mzis)} MZIs",
+            ax.text(0.035, 0.06, f"Programmed / 已确定 {c['placed']}/{len(opu.vt_mzis)} MZIs",
                     fontsize=10.5, color=GREEN, family=CN)
 
         elif fr.get("mzi"):
             d = fr["mzi"]
             z, before, after = d["z"], d["before"], d["after"]
             T = mzi_transfer_matrix(z.theta, z.phi)
-            ax.text(0.04, 0.86, f"MZI #{z.index}   模式/modes {z.mode} / {z.mode+1}   "
+            ax.text(0.04, 0.86, f"MZI #{z.index}   modes/模式 {z.mode} / {z.mode+1}   "
                                 f"θ={np.degrees(z.theta):.1f}°  φ={np.degrees(z.phi):.1f}°",
                     fontsize=12, color=AMBER, family=CN)
             ax.text(0.04, 0.62, f"a = {before[0].real:+.4f} {before[0].imag:+.4f}j\n"
@@ -830,15 +833,15 @@ class Renderer:
                         fontsize=11.5, color=GREEN, family=MONO, va="center")
                 pin = np.sum(np.abs(before) ** 2)
                 pout = np.sum(np.abs(after) ** 2)
-                ax.text(0.04, 0.30, f"能量 / Energy  |a|²+|b|² = {pin:.6f}   →   "
-                                    f"|a'|²+|b'|² = {pout:.6f}   (幺正/unitary)",
+                ax.text(0.04, 0.30, f"Energy / 能量  |a|²+|b|² = {pin:.6f}   →   "
+                                    f"|a'|²+|b'|² = {pout:.6f}   (unitary/幺正)",
                         fontsize=10.5, color=GREEN if abs(pin - pout) < 1e-9 else RED,
                         family=CN)
-            ax.text(0.68, 0.86, "传输矩阵 / Transfer T†", fontsize=10.5, color=VIOLET, family=CN)
+            ax.text(0.68, 0.86, "Transfer T† / 传输矩阵", fontsize=10.5, color=VIOLET, family=CN)
             ax.text(0.68, 0.60, f"[{T[0,0]:+.3f}  {T[0,1]:+.3f}]\n"
                                 f"[{T[1,0]:+.3f}  {T[1,1]:+.3f}]",
                     fontsize=9.5, color="#9fb3d9", family=MONO, va="center")
-            ax.text(0.04, 0.11, "θ 控制分光比 / splitting；φ 控制相对相位 / relative phase",
+            ax.text(0.04, 0.11, "θ controls splitting / 分光比; φ controls relative phase / 相对相位",
                     fontsize=10, color=DIM, family=CN)
 
         elif fr.get("voa"):
@@ -857,10 +860,10 @@ class Renderer:
                         fontsize=9.5, color=VIOLET, family=MONO)
                 ax.text(xb + w * 0.44, 0.11, f"mode {i}", ha="center", fontsize=9,
                         color=DIM, family=CN)
-            ax.text(0.06, 0.90, "Σ 衰减 / attenuation：输入/input（青） vs 输出/output（紫）", fontsize=12,
+            ax.text(0.06, 0.90, "Σ attenuation / 衰减: input/输入 (cyan/青) vs output/输出 (violet/紫)", fontsize=12,
                     color=FG, family=CN)
-            ax.text(0.06, 0.80, f"总光强 / total {np.sum(b**2):.4f} → {np.sum(a**2):.4f}"
-                                f"   （有意衰减 / programmed loss）",
+            ax.text(0.06, 0.80, f"total / 总光强 {np.sum(b**2):.4f} → {np.sum(a**2):.4f}"
+                                f"   (programmed loss / 有意衰减)",
                     fontsize=10.5, color=VIOLET, family=CN)
 
         elif fr.get("result"):
@@ -884,22 +887,22 @@ class Renderer:
                         fontsize=8.5, color="#64748b", family=MONO)
             ax.plot([0.05, 0.96], [base, base], color="#3a465f", lw=1)
             e_id = np.linalg.norm(d["y_opt"] - d["y_cpu"])
-            ax.text(0.05, 0.94, "NumPy（灰/gray） vs 理想光子 / ideal OPU（绿/green）" +
-                    (" vs 非理想 / non-ideal（红/red）" if d["noisy"] is not None else ""),
+            ax.text(0.05, 0.94, "NumPy (gray/灰) vs ideal OPU / 理想光子 (green/绿)" +
+                    (" vs non-ideal / 非理想 (red/红)" if d["noisy"] is not None else ""),
                     fontsize=11.5, color=FG, family=CN, va="center")
-            ax.text(0.05, 0.855, f"理想绝对误差 / ideal abs. error = {e_id:.2e}", fontsize=10.5,
+            ax.text(0.05, 0.855, f"ideal abs. error / 理想绝对误差 = {e_id:.2e}", fontsize=10.5,
                     color=GREEN, family=CN, va="center")
             if d["noisy"] is not None:
                 rel = np.linalg.norm(d["noisy"] - d["y_cpu"]) / np.linalg.norm(d["y_cpu"])
-                ax.text(0.45, 0.855, f"非理想相对误差 / non-ideal rel. = {rel*100:.2f}% ≈ "
+                ax.text(0.45, 0.855, f"non-ideal rel. / 非理想相对误差 = {rel*100:.2f}% ≈ "
                                      f"{-np.log2(rel):.1f} effective bits",
                         fontsize=10.5, color=RED, family=CN, va="center")
         elif st == 3:
             # 输入编码：实数怎么变成一束激光
-            ax.text(0.04, 0.90, "输入编码 / Input encoding：实数 → 复振幅 / real → complex field", fontsize=12,
+            ax.text(0.04, 0.90, "Input encoding / 输入编码: real → complex field / 实数 → 复振幅", fontsize=12,
                     color=CYAN, family=CN, va="center")
             cols = [0.06, 0.20, 0.34, 0.47]
-            for c, h in zip(cols, ["模式/mode", "x$_i$", "振幅/amp |E|", "相位/phase"], strict=True):
+            for c, h in zip(cols, ["mode/模式", "x$_i$", "amp/振幅 |E|", "phase/相位"], strict=True):
                 ax.text(c, 0.74, h, fontsize=9.5, color=DIM, family=CN, va="center")
             ax.plot([0.05, 0.60], [0.68, 0.68], color="#2b3550", lw=1)
             for i in range(min(opu.n_in, 6)):
@@ -910,11 +913,11 @@ class Renderer:
                                  strict=True):
                     ax.text(c, yy, s, fontsize=10, family=MONO, va="center",
                             color=RED if v < 0 else CYAN)
-            ax.text(0.64, 0.52, "负数用 π 相位编码；光强仍非负。\n"
-                                "A negative value is encoded by a π phase shift;\n"
-                                "optical intensity remains non-negative.\n\n"
-                                "相差 π 的光相消，实现减法。\n"
-                                "Fields π out of phase cancel, implementing subtraction.",
+            ax.text(0.64, 0.52, "A negative value is encoded by a π phase shift;\n"
+                                "optical intensity remains non-negative.\n"
+                                "负数用 π 相位编码；光强仍非负。\n\n"
+                                "Fields π out of phase cancel, implementing subtraction.\n"
+                                "相差 π 的光相消，实现减法。",
                     fontsize=10.5, color=DIM, family=CN, va="center", linespacing=1.75)
 
         elif fr.get("prop"):
@@ -922,9 +925,9 @@ class Renderer:
             E = fr["prop"]["E"]
             p_in = float(np.sum(np.abs(x) ** 2))
             p_now = float(np.sum(np.abs(E) ** 2))
-            ax.text(0.04, 0.86, "光强台账 / Intensity ledger", fontsize=12, color=VIOLET, family=CN, va="center")
-            rows = [("输入 / input", f"Σ|E|² = {p_in:.4f}", CYAN),
-                    ("当前位置 / current", f"Σ|E|² = {p_now:.4f}   ({p_now / p_in * 100:5.1f}%)",
+            ax.text(0.04, 0.86, "Intensity ledger / 光强台账", fontsize=12, color=VIOLET, family=CN, va="center")
+            rows = [("input / 输入", f"Σ|E|² = {p_in:.4f}", CYAN),
+                    ("current / 当前位置", f"Σ|E|² = {p_now:.4f}   ({p_now / p_in * 100:5.1f}%)",
                      GREEN if p_now > 0.99 * p_in else VIOLET)]
             for k, (a, b, c) in enumerate(rows):
                 ax.text(0.06, 0.66 - k * 0.16, a, fontsize=10.5, color=DIM,
@@ -932,8 +935,8 @@ class Renderer:
                 ax.text(0.24, 0.66 - k * 0.16, b, fontsize=11, color=c,
                         family=MONO, va="center")
             ax.text(0.04, 0.24,
-                    "酉网格只重排模式能量，总光强守恒 / Unitary meshes redistribute energy and conserve total intensity.\n"
-                    "Σ 是有意设置的衰减级 / Σ is the programmed attenuation stage.",
+                    "Unitary meshes redistribute energy and conserve total intensity. / 酉网格只重排模式能量。\n"
+                    "Σ is the programmed attenuation stage. / Σ 是有意设置的衰减级。",
                     fontsize=10.5, color=DIM, family=CN, va="center", linespacing=1.7)
         else:
             ax.text(0.5, 0.5, "", ha="center")
@@ -949,25 +952,25 @@ class Renderer:
 
         bar = "   ".join(f"[{s}]" if i == st else f" {s} "
                          for i, s in enumerate(STAGES))
-        self.t_title.set_text(f"MZI 网格光计算 / MZI Mesh Photonic Computing  ·  {STAGES[st]}")
+        self.t_title.set_text(f"MZI Mesh Photonic Computing / MZI 网格光计算  ·  {STAGES[st]}")
         self.t_sub.set_text(bar)
         self.t_narr.set_text(fr["narr"])
         self.t_help.set_text(
-            f"帧/frame {k+1}/{len(self.script)}   Space=暂停/pause  ←→=单步/step  ,.=阶段/stage  r=重播/restart"
-             if live else f"帧/frame {k+1}/{len(self.script)}")
+            f"frame/帧 {k+1}/{len(self.script)}   Space=pause/暂停  ←→=step/单步  ,.=stage/阶段  r=restart/重播"
+             if live else f"frame/帧 {k+1}/{len(self.script)}")
         return []
 
 
 # --------------------------------------------------------------------------- #
 def main():
     ap = argparse.ArgumentParser(prog="python -m photonic_mzi",
-                                 description="MZI 双语教学动画 / bilingual MZI animation")
-    ap.add_argument("--save", metavar="FILE", help="导出 GIF / export GIF (e.g. mzi.gif)")
+                                 description="Bilingual MZI teaching animation / MZI 双语教学动画")
+    ap.add_argument("--save", metavar="FILE", help="export GIF / 导出 GIF (e.g. mzi.gif)")
     ap.add_argument("--fps", type=int, default=14)
     ap.add_argument("--dpi", type=int, default=100)
     ap.add_argument("--stride", type=int, default=1,
-                    help="每 N 帧取一帧 / keep every Nth frame")
-    ap.add_argument("-n", type=int, default=0, help="改用 n×n 随机矩阵 / use a random n×n matrix")
+                    help="keep every Nth frame / 每 N 帧取一帧")
+    ap.add_argument("-n", type=int, default=0, help="use a random n×n matrix / 改用 n×n 随机矩阵")
     ap.add_argument("--seed", type=int, default=42)
     args = ap.parse_args()
 
@@ -984,11 +987,11 @@ def main():
 
     opu = PhotonicMatrixProcessor(M, seed=args.seed)
     if opu.N < 2:
-        raise SystemExit("N 至少为 2 / N must be at least 2; a 1x1 matrix has no MZI.")
+        raise SystemExit("N must be at least 2; a 1x1 matrix has no MZI. / N 至少为 2。")
     geo = ChipLayout(opu)
     script = build_script(opu, M, x, geo)
-    print(f"矩阵 / matrix {M.shape}; MZIs {len(opu.vt_mzis)+len(opu.u_mzis)}; "
-          f"帧 / frames {len(script)} ≈ {len(script)/args.fps:.1f} s")
+    print(f"matrix / 矩阵 {M.shape}; MZIs {len(opu.vt_mzis)+len(opu.u_mzis)}; "
+          f"frames / 帧 {len(script)} ≈ {len(script)/args.fps:.1f} s")
 
     r = Renderer(opu, M, x, script, geo)
 
@@ -999,10 +1002,10 @@ def main():
         keep = list(range(0, len(script), args.stride))
         anim = FuncAnimation(r.fig, lambda k: r.render(k, live=False),
                              frames=keep, interval=1000 // args.fps, blit=False)
-        print(f"正在导出 / Exporting {args.save} ({len(keep)} frames, dpi={args.dpi})...")
+        print(f"Exporting / 正在导出 {args.save} ({len(keep)} frames, dpi={args.dpi})...")
         anim.save(args.save, writer=PillowWriter(fps=max(1, args.fps // args.stride)),
                   dpi=args.dpi)
-        print(f"完成 / Done: {args.save} ({os.path.getsize(args.save) / 1e6:.1f} MB)")
+        print(f"Done / 完成: {args.save} ({os.path.getsize(args.save) / 1e6:.1f} MB)")
         return
 
     from matplotlib.animation import FuncAnimation

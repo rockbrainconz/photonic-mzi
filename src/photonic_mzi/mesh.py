@@ -1,7 +1,7 @@
 """
-器件层与编译层：2x2 马赫-曾德尔干涉仪，以及「酉矩阵 -> MZI 相移角」的分解。
 Device and compiler layer: 2x2 Mach-Zehnder interferometers and unitary-to-MZI decomposition.
 
+器件层与编译层：2x2 马赫-曾德尔干涉仪，以及「酉矩阵 -> MZI 相移角」的分解。
 这一层不依赖 matplotlib，也不涉及任何物理噪声模型，只做纯粹的线性代数。
 """
 from __future__ import annotations
@@ -24,7 +24,7 @@ __all__ = [
 # =============================================================================
 def mzi_transfer_matrix(theta: float, phi: float) -> np.ndarray:
     """
-    2x2 MZI 传输矩阵（幺正）。Unitary 2x2 MZI transfer matrix.
+    Unitary 2x2 MZI transfer matrix. / 2x2 MZI 传输矩阵（幺正）。
 
         theta : 内相移，控制分光比（振幅路由）
         phi   : 外相移，控制两路的相对相位
@@ -40,7 +40,7 @@ def mzi_transfer_matrix(theta: float, phi: float) -> np.ndarray:
 
 
 def apply_T_left(A: np.ndarray, m: int, theta: float, phi: float) -> None:
-    """``A <- T_m @ A``，就地更新两行。Update two rows in place in O(columns)."""
+    """Update two rows in place in O(columns). / ``A <- T_m @ A``，就地更新两行。"""
     s, c = np.sin(theta), np.cos(theta)
     e = np.exp(1j * phi)
     a, b = A[m].copy(), A[m + 1]
@@ -69,7 +69,7 @@ def apply_T_dagger_left(E: np.ndarray, m: int, theta: float | np.ndarray,
 # =============================================================================
 @dataclass(frozen=True)
 class MZI:
-    """一台网格 MZI；``mode`` 是低编号波导。One mesh MZI and its lower mode."""
+    """One mesh MZI and its lower mode. / 一台网格 MZI；``mode`` 是低编号波导。"""
 
     mode: int
     theta: float
@@ -80,8 +80,8 @@ class MZI:
 
 def decompose_unitary(U: np.ndarray) -> tuple[list[MZI], np.ndarray]:
     """
-    Reck 三角分解：把 N x N 酉矩阵拆成 N(N-1)/2 台 MZI + N 个输出相移。
     Reck decomposition of an N x N unitary into N(N-1)/2 MZIs and N output phases.
+    Reck 三角分解：把 N x N 酉矩阵拆成 N(N-1)/2 台 MZI + N 个输出相移。
 
     .. math::
         T_k \\cdots T_1 U = \\mathrm{diag}(e^{i\\delta})
@@ -93,12 +93,12 @@ def decompose_unitary(U: np.ndarray) -> tuple[list[MZI], np.ndarray]:
     """
     U = np.asarray(U, dtype=complex)
     if U.ndim != 2 or U.shape[0] != U.shape[1] or U.shape[0] == 0:
-        raise ValueError(f"U 必须是非空方阵 / U must be a non-empty square matrix; shape={U.shape}")
+        raise ValueError(f"U must be a non-empty square matrix / U 必须是非空方阵; shape={U.shape}")
     if not np.all(np.isfinite(U)):
-        raise ValueError("U 必须只包含有限数值 / U must contain only finite values")
+        raise ValueError("U must contain only finite values / U 必须只包含有限数值")
     N = U.shape[0]
     if not np.allclose(U.conj().T @ U, np.eye(N), atol=1e-10, rtol=1e-10):
-        raise ValueError("U 必须是酉矩阵 / U must be unitary (U^H @ U = I)")
+        raise ValueError("U must be unitary (U^H @ U = I) / U 必须是酉矩阵")
 
     A = U.copy()
     elim: list[tuple[int, float, float]] = []
@@ -136,7 +136,7 @@ def decompose_unitary(U: np.ndarray) -> tuple[list[MZI], np.ndarray]:
 
 
 def recompose_unitary(mzis: Iterable[MZI], diag_phases: np.ndarray, N: int) -> np.ndarray:
-    """由相移角重建酉矩阵。Recompose a unitary for compilation round-trip checks."""
+    """Recompose a unitary for round-trip checks. / 由相移角重建酉矩阵。"""
     A = np.zeros((N, N), dtype=complex)
     for k in range(N):
         A[k, k] = diag_phases[k]

@@ -254,6 +254,8 @@ def test_reset_calibration():
 def test_report_contains_key_metrics():
     opu = PhotonicMatrixProcessor(np.random.default_rng(0).standard_normal((4, 4)))
     text = opu.report()
+    for key in ["MZI count", "Mesh depth", "Singular values", "Round trip", "Calibration"]:
+        assert key in text
     for key in ["MZI 总数", "网格深度", "奇异值", "编译回环误差", "校准状态"]:
         assert key in text
     assert opu.n_mzi == 2 * (4 * 3 // 2)

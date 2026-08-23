@@ -1,6 +1,6 @@
 """
-本项目的规模扩展与批处理基准。
 Scaling and batch-throughput benchmark for this implementation.
+本项目的规模扩展与批处理基准。
 
     python benchmarks/bench_decomposition.py
 """
@@ -19,7 +19,7 @@ from photonic_mzi import PhotonicMatrixProcessor  # noqa: E402
 
 
 def timeit(fn, rep: int = 3) -> float:
-    """返回多次运行中的最短时间。Return the best of repeated timings."""
+    """Return the best of repeated timings. / 返回多次运行中的最短时间。"""
     best = float("inf")
     for _ in range(rep):
         started = time.perf_counter()
@@ -29,9 +29,9 @@ def timeit(fn, rep: int = 3) -> float:
 
 
 def main() -> None:
-    print("规模扩展 / Scaling")
-    print(f"{'N':>4} | {'编译 / compile':>18} | {'单次前向 / forward':>22} | "
-          f"{'相对误差 / rel. error':>23}")
+    print("Scaling / 规模扩展")
+    print(f"{'N':>4} | {'compile / 编译':>18} | {'forward / 单次前向':>22} | "
+          f"{'rel. error / 相对误差':>23}")
     print("-" * 78)
     for n in [8, 16, 32, 64, 128]:
         rng = np.random.default_rng(n)
@@ -56,10 +56,10 @@ def main() -> None:
     opu = PhotonicMatrixProcessor(matrix)
     batch_time = timeit(lambda: opu.forward(inputs), 1)
     loop_time = timeit(lambda: [opu.forward(inputs[:, i]) for i in range(batch)], 1)
-    print(f"\n批处理 / Batch: {n}x{n} @ {batch} inputs")
-    print(f"一次调用 / one call: {batch_time * 1e3:.1f} ms")
-    print(f"逐条循环 / Python loop: {loop_time * 1e3:.1f} ms")
-    print(f"批处理加速 / batch speedup: {loop_time / batch_time:.0f}x")
+    print(f"\nBatch / 批处理: {n}x{n} @ {batch} inputs")
+    print(f"one call / 一次调用: {batch_time * 1e3:.1f} ms")
+    print(f"Python loop / 逐条循环: {loop_time * 1e3:.1f} ms")
+    print(f"batch speedup / 批处理加速: {loop_time / batch_time:.0f}x")
 
 
 if __name__ == "__main__":

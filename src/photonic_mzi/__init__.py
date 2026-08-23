@@ -1,29 +1,30 @@
 """
-photonic-mzi — MZI 网格光计算模拟器 / MZI mesh photonic-computing simulator
+photonic-mzi — MZI mesh photonic-computing simulator / MZI 网格光计算模拟器
 ============================================================================
-
-验证光处理器执行矩阵乘加的电路级可行性：把任意实矩阵通过 SVD 编译成
-马赫-曾德尔干涉仪（MZI）网格，并检查理想传播与 ``M @ x`` 一致。
-它是电路级教学模型，不是商用芯片硬件复刻。
 
 Validate circuit-level photonic matrix multiply-accumulate by compiling any real
 matrix through SVD into Mach-Zehnder interferometer meshes and checking ideal
 propagation against ``M @ x``. This is a teaching model, not a hardware replica.
 
-    [x] -> [V^T 酉变换网格] -> [Sigma 光衰减器] -> [U 酉变换网格] -> [y]
+验证光处理器执行矩阵乘加的电路级可行性：把任意实矩阵通过 SVD 编译成
+马赫-曾德尔干涉仪（MZI）网格，并检查理想传播与 ``M @ x`` 一致。
+它是电路级教学模型，不是商用芯片硬件复刻。
 
-快速上手::
+    [x] -> [V^T unitary mesh / 酉变换网格] -> [Sigma attenuators / 光衰减器]
+        -> [U unitary mesh / 酉变换网格] -> [y]
+
+Quick start / 快速上手::
 
     import numpy as np
     from photonic_mzi import PhotonicMatrixProcessor
 
     M = np.random.randn(8, 5)
     opu = PhotonicMatrixProcessor(M, seed=42)
-    y = opu.read_coherent(np.random.randn(5))   # 与 M @ x 一致到 ~1e-15
-    E = opu.optical_field(np.random.randn(5))   # 探测前复光场，不含电域增益
+    y = opu.read_coherent(np.random.randn(5))   # agrees with M @ x to about 1e-15
+    E = opu.optical_field(np.random.randn(5))   # complex field before detection
     print(opu.report())
 
-动画（需要装可选依赖 ``pip install "photonic-mzi[viz]"``）::
+Animation / 动画 (requires ``pip install "photonic-mzi[viz]"``)::
 
     python -m photonic_mzi
 """

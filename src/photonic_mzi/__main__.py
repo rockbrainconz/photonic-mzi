@@ -1,4 +1,4 @@
-"""``python -m photonic_mzi`` 入口 / entry point for the teaching animation."""
+"""Entry point for the teaching animation. / 教学动画入口。"""
 from __future__ import annotations
 
 import sys
@@ -7,8 +7,8 @@ import sys
 def main() -> int:
     try:
         from .animation import main as animation_main
-    except ImportError as exc:  # matplotlib 是可选依赖
-        print(f"动画需要 matplotlib / The animation requires matplotlib: {exc}\n\n"
+    except ImportError as exc:  # Matplotlib is an optional dependency.
+        print(f"The animation requires matplotlib / 动画需要 matplotlib: {exc}\n\n"
               '    pip install "photonic-mzi[viz]"\n', file=sys.stderr)
         return 1
     animation_main()

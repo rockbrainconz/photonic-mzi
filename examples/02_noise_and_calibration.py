@@ -1,5 +1,5 @@
 """
-例 2：静态偏置与动态抖动。Example 2: static offsets and dynamic jitter.
+Example 2: static offsets and dynamic jitter. / 例 2：静态偏置与动态抖动。
 
 这是把 fab_* 和 drift_* 分开建模的意义：混进一个 noise_std，就无法区分
 可表征的控制偏置与运行时随机抖动。
@@ -41,34 +41,34 @@ def run(label: str, noise: NoiseModel, calibrate: bool) -> None:
     print(f"  {label:<34} {b:5.1f} bit")
 
 
-print("有效精度 / Effective precision (higher is better)\n")
+print("Effective precision (higher is better) / 有效精度\n")
 
-print("只有静态相移控制偏置 / Static phase offset only (fab 0.02 rad):")
-run("未校准 / uncalibrated", NoiseModel(fab_theta=0.02, fab_phi=0.02), calibrate=False)
-run("校准后 / calibrated", NoiseModel(fab_theta=0.02, fab_phi=0.02), calibrate=True)
-print("  -> 理想表征可抵消加性偏置 / ideal characterization cancels additive offsets\n")
+print("Static phase offset only / 只有静态相移控制偏置 (fab 0.02 rad):")
+run("uncalibrated / 未校准", NoiseModel(fab_theta=0.02, fab_phi=0.02), calibrate=False)
+run("calibrated / 校准后", NoiseModel(fab_theta=0.02, fab_phi=0.02), calibrate=True)
+print("  -> ideal characterization cancels additive offsets / 理想表征可抵消加性偏置\n")
 
-print("只有独立动态相位抖动 / Dynamic jitter only (drift 0.02 rad):")
-run("未校准 / uncalibrated", NoiseModel(drift_theta=0.02, drift_phi=0.02), calibrate=False)
-run("校准后 / calibrated", NoiseModel(drift_theta=0.02, drift_phi=0.02), calibrate=True)
-print("  -> 静态校准无法消除 / static calibration cannot remove per-sample jitter\n")
+print("Dynamic jitter only / 只有独立动态相位抖动 (drift 0.02 rad):")
+run("uncalibrated / 未校准", NoiseModel(drift_theta=0.02, drift_phi=0.02), calibrate=False)
+run("calibrated / 校准后", NoiseModel(drift_theta=0.02, drift_phi=0.02), calibrate=True)
+print("  -> static calibration cannot remove per-sample jitter / 静态校准无法消除\n")
 
-print("两者都有 / Both (fab 0.02 + drift 0.005):")
+print("Both / 两者都有 (fab 0.02 + drift 0.005):")
 nz = NoiseModel(fab_theta=0.02, fab_phi=0.02, drift_theta=0.005, drift_phi=0.005)
-run("未校准 / uncalibrated", nz, calibrate=False)
-run("校准后 / calibrated", nz, calibrate=True)
-print("  -> 动态抖动主导 / dynamic jitter dominates; not a hardware precision limit\n")
+run("uncalibrated / 未校准", nz, calibrate=False)
+run("calibrated / 校准后", nz, calibrate=True)
+print("  -> dynamic jitter dominates; not a hardware precision limit / 动态抖动主导\n")
 
-print("再叠加插损与探测噪声 / Add loss and readout noise:")
+print("Add loss and readout noise / 再叠加插损与探测噪声:")
 full = NoiseModel(fab_theta=0.02, fab_phi=0.02, drift_theta=0.005, drift_phi=0.005,
                   mzi_loss_db=0.2, voa_rel_err=0.01, detector_snr_db=40)
-run("校准后 / calibrated", full, calibrate=True)
+run("calibrated / 校准后", full, calibrate=True)
 
 opu = PhotonicMatrixProcessor(M, noise=full, seed=7)
 cnt = opu.mode_mzi_count()
-print(f"\n  模式 MZI 参与数 / MZIs per mode: {cnt.tolist()}")
-print(f"  参与数范围相差 {cnt.max() - cnt.min()} 台；按统一器件损耗折算为 "
-      f"{(cnt.max() - cnt.min()) * full.mzi_loss_db:.1f} dB 的拓扑代理 / "
-      f"participation spread gives a {(cnt.max() - cnt.min()) * full.mzi_loss_db:.1f} dB topology proxy")
-print("  这不是端到端路径追踪 / This is not end-to-end path tracing.")
-print("  Clements 可缩短光学深度，但不会消除器件误差 / Clements reduces depth, not device errors.")
+print(f"\n  MZIs per mode / 模式 MZI 参与数: {cnt.tolist()}")
+print(f"  Participation spread gives a "
+      f"{(cnt.max() - cnt.min()) * full.mzi_loss_db:.1f} dB topology proxy / "
+      f"参与数相差 {cnt.max() - cnt.min()} 台，按统一器件损耗折算")
+print("  This is not end-to-end path tracing. / 这不是端到端路径追踪。")
+print("  Clements reduces depth, not device errors. / Clements 可缩短光学深度，但不会消除器件误差。")

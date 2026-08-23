@@ -1,80 +1,91 @@
-# 模型与验证说明
+# Model and Validation Notes
 
-[中文](validation.md) | [English](validation.en.md)
+[English](validation.md) | [简体中文](validation.zh-CN.md)
 
-## 1. 验证目标
+## 1. Validation target
 
-本项目验证光处理器执行矩阵乘加的**电路级可行性**。证据链包括：
+This project validates the **circuit-level feasibility** of photonic matrix
+multiply-accumulate. The evidence chain is:
 
-1. 将目标实矩阵编译成可实现的 MZI 网格与 VOA 参数；
-2. 将输入编码为相干光复振幅并执行传播；
-3. 通过相干探测恢复带符号结果，并与 `M @ x` 或 `M @ X` 比较；
-4. 分别注入简化非理想性，量化结果敏感度。
+1. compile a target real matrix into realizable MZI and VOA parameters;
+2. encode inputs as coherent complex optical amplitudes and propagate them;
+3. recover signed results through coherent detection and compare them with `M @ x` or `M @ X`;
+4. inject simplified non-idealities independently and quantify sensitivity.
 
-这里的“可行”限定在数学映射、数值实现和简化线性光学电路模型内，不代表已经验证
-真实芯片的制造、封装、能耗、延迟、带宽、精度或经济性。
+“Feasible” is limited to the mathematical mapping, numerical implementation, and
+simplified linear optical circuit model. It does not establish fabrication, packaging,
+energy, latency, bandwidth, precision, or economic feasibility for a physical chip.
 
-## 2. 数学映射
+## 2. Mathematical mapping
 
-任意实矩阵可写为：
+Any real matrix has an SVD:
 
 ```text
 M = U · Σ · Vᵀ
 ```
 
-`U` 和 `Vᵀ` 是正交变换，可嵌入酉变换并编译为 Reck 三角 MZI 网格；`Σ` 是非负
-对角缩放，对应一列 VOA。VOA 只能衰减，因此奇异值归一化为 `S_phys = S / S_max`，
-整体增益 `S_max` 在读出电域补回。
+`U` and `Vᵀ` are orthogonal transforms that can be embedded in unitary transforms and
+compiled into triangular Reck MZI meshes. `Σ` is non-negative diagonal scaling and maps
+to a VOA bank. Because a passive VOA can only attenuate, singular values are normalized
+as `S_phys = S / S_max`, and the overall gain `S_max` is restored in the electrical
+readout domain.
 
-酉矩阵使用逐列消元编译。对目标元素 `(x, y)`，参数为：
+Unitary compilation uses column elimination. For a target pair `(x, y)`, the parameters
+are:
 
 ```python
 phi = np.angle(y) - np.angle(x) - np.pi
 theta = np.arctan2(np.abs(x), np.abs(y))
 ```
 
-`arctan2` 连续覆盖 `y -> 0` 与 `x -> 0` 两个退化极限，不依赖绝对阈值。需要注意，
-本项目所用传输矩阵在 `theta=0, phi=0` 时是交换阵，而单位阵对应
-`theta=pi/2, phi=pi`。
+`arctan2` continuously covers the `y -> 0` and `x -> 0` limits without an absolute
+threshold. Under this project's transfer-matrix convention, `theta=0, phi=0` is a swap,
+while the identity is `theta=pi/2, phi=pi`.
 
-## 3. 光学传播与读出
+## 3. Optical propagation and readout
 
-输入 `x` 编码为同一相干光源分出的多路复振幅。两张无损酉网格只重新分配模式间
-能量；中间 VOA 按奇异值执行通道缩放。理想情况下，探测前光场满足：
+The input is encoded into complex amplitudes split from one coherent source. The two
+lossless unitary meshes redistribute energy among modes; the VOA bank applies the
+singular-value scaling. In the ideal model, the pre-detection field satisfies:
 
 ```text
 E = (M @ x) / gain
 ```
 
-`read_coherent()` 表示带本振的相干或零差探测，可恢复带符号实部；
-`read_intensity()` 表示平方律直接探测，只能得到标定后的 `gain²·|E|²`，符号会丢失。
+`read_coherent()` represents coherent or homodyne detection with a local oscillator and
+recovers a signed real component. `read_intensity()` represents square-law direct
+detection and returns calibrated `gain²·|E|²`, which loses sign information.
 
-## 4. 简化非理想性
+## 4. Simplified non-idealities
 
-`NoiseModel` 有意区分不同统计与物理语义：
+`NoiseModel` deliberately separates different statistical and physical meanings:
 
-| 参数 | 模型含义 | 校准能力 |
+| Parameter | Model meaning | Calibration |
 |---|---|---|
-| `fab_theta`, `fab_phi` | 构造处理器时采样一次的固定加性相移控制偏置 | 理想表征模型可抵消 |
-| `drift_theta`, `drift_phi` | 每个输入样本独立的 i.i.d. 相位抖动 | 静态表不能消除 |
-| `mzi_loss_db` | 每台 MZI 的统一插入损耗 | 当前 `calibrate()` 不处理 |
-| `voa_rel_err` | 每通道固定 VOA 相对设定误差 | 当前 `calibrate()` 不处理 |
-| `detector_snr_db`, `detector_noise_floor` | 探测后的等效 AWGN | 当前 `calibrate()` 不处理 |
+| `fab_theta`, `fab_phi` | Fixed additive phase-control offsets sampled once at construction | Cancelled by the ideal characterization model |
+| `drift_theta`, `drift_phi` | Independent per-input i.i.d. phase jitter | Not removable by a static table |
+| `mzi_loss_db` | Uniform insertion loss per MZI | Not handled by `calibrate()` |
+| `voa_rel_err` | Fixed per-channel relative VOA setting error | Not handled by `calibrate()` |
+| `detector_snr_db`, `detector_noise_floor` | Post-detection equivalent AWGN | Not handled by `calibrate()` |
 
-这些参数用于敏感度分析，不是完整器件模型。特别是，`fab_*` 不表示会限制可达分光比
-的分束器偏差，`drift_*` 不描述真实热漂移的慢时间、空间相关和热串扰。
+These parameters support sensitivity analysis; they are not a complete device model.
+In particular, `fab_*` does not model beam-splitter errors that restrict reachable
+splitting ratios, and `drift_*` does not model slow temporal correlation, spatial
+correlation, or thermal crosstalk.
 
-## 5. 拓扑与复杂度
+## 5. Topology and complexity
 
-当前实现使用 Reck 三角网格，每个 `N x N` 酉矩阵需要 `N(N-1)/2` 台 MZI，最坏
-光学深度为 `2N-3`。Clements 矩形网格使用相同数量的 MZI，但深度为 `N`，通常更
-耐受均匀损耗；当前版本尚未实现。
+The implementation uses a triangular Reck mesh. Each `N x N` unitary requires
+`N(N-1)/2` MZIs and has worst-case optical depth `2N-3`. A rectangular Clements mesh
+uses the same MZI count with depth `N` and is generally more tolerant of uniform loss;
+it is not implemented yet.
 
-编译通过就地更新两行实现，复杂度为 `O(N³)`；单输入前向传播为 `O(N²)`。
-批量输入使用 `(n_in, B)` 布局。同一网格列内的 MZI 占用互不重叠的模式，在物理上
-可并行，但当前 Python 实现仍逐器件循环。
+In-place two-row updates give `O(N³)` compilation and `O(N²)` single-input forward
+propagation. Batched inputs use shape `(n_in, B)`. MZIs in one mesh layer occupy disjoint
+modes and can act in parallel physically, although the current Python model still loops
+over devices.
 
-## 6. 可执行验证
+## 6. Executable validation
 
 ```bash
 pytest -m "not slow"
@@ -82,17 +93,19 @@ pytest
 python benchmarks/bench_decomposition.py
 ```
 
-快速套件包含 128 项测试，完整套件包含 133 项。测试覆盖：
+The fast suite contains 128 tests and the full suite contains 133. Coverage includes:
 
-- 单台 MZI 的酉性、交换阵边界与退化消元；
-- 随机稠密、结构化、秩亏、非方阵和批量矩阵；
-- 编译回环误差、理想传播精度和能量守恒；
-- 静态偏置、动态抖动、插损、VOA 误差与读出噪声语义；
-- 相干与直接探测边界、校准边界和输入校验；
-- 动画全部帧的字形、光场一致性、交互与 GIF 导出。
+- single-MZI unitarity, swap behavior, and degenerate elimination limits;
+- random dense, structured, rank-deficient, rectangular, and batched matrices;
+- compilation round trips, ideal propagation accuracy, and energy conservation;
+- static offsets, dynamic jitter, insertion loss, VOA errors, and readout-noise semantics;
+- coherent/direct detection boundaries, calibration boundaries, and input validation;
+- all-frame animation glyph checks, field consistency, interaction, and GIF export.
 
-## 7. 未验证的系统指标
+## 7. System metrics not validated
 
-本模型不包含 Maxwell/FDTD 电磁场、耦合器波长响应、偏振、非线性、热串扰、激光器、
-调制器、DAC/ADC、TIA、散粒噪声、封装和控制系统。因此不能用它定量预测系统 TOPS、
-每次运算能耗、端到端延迟、真实 ENOB、芯片面积、良率或商用产品性能。
+The model does not include Maxwell/FDTD fields, wavelength-dependent couplers,
+polarization, nonlinearities, thermal crosstalk, lasers, modulators, DAC/ADC, TIA,
+shot noise, packaging, or control systems. It therefore cannot quantitatively predict
+system TOPS, energy per operation, end-to-end latency, physical ENOB, chip area, yield,
+or commercial product performance.

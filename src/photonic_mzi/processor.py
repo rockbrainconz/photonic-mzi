@@ -1,10 +1,10 @@
 """
-处理器层：SVD 编译、正向光学仿真、物理非理想性模型。
 Processor layer: SVD compilation, forward optical propagation, and non-idealities.
+处理器层：SVD 编译、正向光学仿真、物理非理想性模型。
 
     M  = U @ diag(S) @ Vt                       (SVD)
-    U, Vt  -> Reck 三角 MZI 网格
-    diag(S) -> 一列可变光衰减器 VOA
+    U, Vt  -> triangular Reck MZI meshes / Reck 三角 MZI 网格
+    diag(S) -> variable optical attenuator bank / 可变光衰减器阵列
 
     [x] -> [V^T mesh] -> [Sigma VOA] -> [U mesh] -> [y]
 """
@@ -25,31 +25,39 @@ __all__ = ["NoiseModel", "PhotonicMatrixProcessor"]
 @dataclass
 class NoiseModel:
     """
-    区分两类本质不同的误差 —— 把它们混成一个 ``noise_std`` 会得出错误的结论：
+    Simplified physical non-ideality model. / 简化物理非理想性模型。
+
+    The model separates fixed phase-control offsets, independent per-sample phase
+    jitter, insertion loss, fixed VOA setting error, and post-detection equivalent
+    noise. Combining them into one ``noise_std`` would erase their distinct physical
+    and statistical meanings. All angular quantities are 1-sigma values in radians.
 
     ``fab_*``
+        Fixed phase-control offsets, sampled once and exactly cancellable by the ideal
+        characterization model. These do not represent beam-splitter fabrication errors.
         静态**相移控制偏置**。它在处理器构造时采样一次，并可由理想化的表征流程
         精确抵消。它不代表分束器制造偏差；后者可能限制 MZI 的可达分光比，本模型
         尚未描述，不能用 :meth:`PhotonicMatrixProcessor.calibrate` 简单消除。
     ``drift_*``
+        Independent per-input phase jitter for sensitivity analysis, not time- or
+        space-correlated physical thermal drift.
         每个输入样本独立采样的动态相位抖动。它是用于敏感度分析的 i.i.d. 简化模型，
         不等同于具有慢时间尺度和空间相关性的真实热漂移。
     ``mzi_loss_db``
+        Insertion loss per MZI. Unequal Reck depth creates deterministic mismatch.
         每台 MZI 的插入损耗。Reck 三角网格路径长度不均匀，它会让不同波导衰减不同，
         形成确定性的通道失配 —— 真实芯片的主要误差源之一。
     ``voa_rel_err``
+        Fixed relative VOA setting error, sampled once per channel.
         衰减器的固定相对设定误差，构造处理器时每通道采样一次。
     ``detector_snr_db``
+        Post-detection equivalent RMS SNR; not a separate model of shot noise, TIA,
+        electrical bandwidth, or a coherent local oscillator.
         探测后读出量的等效 RMS 信噪比。它只是相对 AWGN 参数，不声称分别建模
         散粒噪声、TIA、电带宽或相干本振。
     ``detector_noise_floor``
+        Absolute post-detection Gaussian noise floor in output units.
         探测后、以返回值单位表示的绝对高斯噪声底。相对噪声与它按方差相加。
-
-    所有角度量的单位都是 **弧度**（1-sigma），不是百分比。
-
-    The model separates fixed phase-control offsets, independent per-sample phase
-    jitter, insertion loss, fixed VOA setting error, and post-detection equivalent
-    noise. All angular quantities are 1-sigma values in radians, not percentages.
     """
 
     fab_theta: float = 0.0
@@ -74,14 +82,14 @@ class NoiseModel:
         for name, value in nonnegative.items():
             if not np.isfinite(value) or value < 0:
                 raise ValueError(
-                    f"{name} 必须是有限非负数 / must be finite and non-negative; got {value!r}")
+                    f"{name} must be finite and non-negative / 必须是有限非负数; got {value!r}")
         if not (self.detector_snr_db == float("inf") or
                 np.isfinite(self.detector_snr_db) and self.detector_snr_db > 0):
-            raise ValueError("detector_snr_db 必须是正数或 inf / must be positive or inf")
+            raise ValueError("detector_snr_db must be positive or inf / 必须是正数或 inf")
 
     @property
     def amp_transmission(self) -> float:
-        """插损 dB 转幅度透过率。Convert insertion loss in dB to amplitude transmission."""
+        """Convert loss in dB to amplitude transmission. / 插损 dB 转幅度透过率。"""
         return 10.0 ** (-self.mzi_loss_db / 20.0)
 
 
@@ -90,17 +98,20 @@ class NoiseModel:
 # =============================================================================
 class PhotonicMatrixProcessor:
     """
-    把任意实数矩阵 ``M`` (n_out x n_in) 编译到光子芯片上。
     Compile any real matrix ``M`` (n_out x n_in) onto a photonic processor model.
+    把任意实数矩阵 ``M`` (n_out x n_in) 编译到光子处理器模型上。
 
     Parameters
     ----------
     M
-        目标矩阵。支持非方阵，内部零填充到 ``N = max(n_out, n_in)``，多余端口暗置。
+        Target matrix; rectangular shapes are zero-padded internally to
+        ``N = max(n_out, n_in)``. / 目标矩阵；支持非方阵，内部零填充。
     noise
-        物理非理想性模型。默认全零（理想芯片）。
+        Physical non-ideality model; defaults to an ideal circuit. /
+        物理非理想性模型；默认全零（理想电路）。
     seed
-        随机种子。走独立的 ``np.random.Generator``，不污染全局 ``np.random``。
+        Seed for an independent ``np.random.Generator``. /
+        独立随机数生成器的种子，不污染全局 ``np.random``。
 
     Examples
     --------
@@ -117,14 +128,14 @@ class PhotonicMatrixProcessor:
         raw_M = np.asarray(M)
         if np.iscomplexobj(raw_M) and np.any(np.imag(raw_M) != 0):
             raise ValueError(
-                "PhotonicMatrixProcessor 当前只支持实矩阵 / currently supports real matrices only")
+                "PhotonicMatrixProcessor currently supports real matrices only / 当前只支持实矩阵")
         M = np.asarray(np.real(raw_M), dtype=float)
         if M.ndim != 2:
-            raise ValueError(f"M 必须是二维矩阵 / M must be two-dimensional; shape={M.shape}")
+            raise ValueError(f"M must be two-dimensional / M 必须是二维矩阵; shape={M.shape}")
         if M.size == 0:
-            raise ValueError("M 不能是空矩阵 / M must not be empty")
+            raise ValueError("M must not be empty / M 不能是空矩阵")
         if not np.all(np.isfinite(M)):
-            raise ValueError("M 必须只包含有限数值 / M must contain only finite values")
+            raise ValueError("M must contain only finite values / M 必须只包含有限数值")
         self.M = M
         self.n_out, self.n_in = M.shape
         self.N = max(self.n_out, self.n_in)
@@ -194,8 +205,8 @@ class PhotonicMatrixProcessor:
     def optical_field(self, x: np.ndarray, ideal: bool = True,
                       trace: list | None = None) -> np.ndarray:
         """
-        正向光学传播，返回探测前的**物理复数光场**。
         Forward optical propagation returning the physical complex field before detection.
+        正向光学传播，返回探测前的**物理复数光场**。
 
         奇异值整体增益 ``self.gain`` 不在这里补回；因此理想情况下返回
         ``(M @ x) / gain``。电域标度和读出噪声分别由 :meth:`read_coherent` 与
@@ -204,28 +215,31 @@ class PhotonicMatrixProcessor:
         Parameters
         ----------
         x
-            输入向量 ``(n_in,)`` 或批量 ``(n_in, B)``。
+            Input vector ``(n_in,)`` or batch ``(n_in, B)``. /
+            输入向量或批量输入。
         ideal
-            ``True`` 走理想物理；``False`` 引入 :class:`NoiseModel` 的全部非理想性。
+            ``True`` for ideal propagation; ``False`` enables :class:`NoiseModel`. /
+            ``True`` 使用理想传播；``False`` 引入全部非理想性。
         trace
-            若传入 list，会记录每一步之后的光场（供动画使用）。
+            Optional list receiving the field after every device for animation. /
+            可选列表，用于记录每个器件后的光场供动画使用。
         """
         x = np.asarray(x, dtype=complex)
         if x.ndim == 1:
             if x.shape[0] != self.n_in:
                 raise ValueError(
-                    f"一维 x 的长度必须是 {self.n_in} / 1-D x must have length {self.n_in}; "
+                    f"1-D x must have length {self.n_in} / 一维 x 的长度必须是 {self.n_in}; "
                     f"got {x.shape[0]}")
         elif x.ndim == 2:
             if x.shape[0] != self.n_in:
                 raise ValueError(
-                    f"二维 x 的第一维必须是 {self.n_in} / first dimension of 2-D x must be "
-                    f"{self.n_in}; shape={x.shape}")
+                    f"first dimension of 2-D x must be {self.n_in} / "
+                    f"二维 x 的第一维必须是 {self.n_in}; shape={x.shape}")
         else:
             raise ValueError(
-                f"x 必须是 / x must have shape (n_in,) or (n_in, B); got {x.shape}")
+                f"x must have shape (n_in,) or (n_in, B) / x 形状必须符合要求; got {x.shape}")
         if not np.all(np.isfinite(x)):
-            raise ValueError("x 必须只包含有限数值 / x must contain only finite values")
+            raise ValueError("x must contain only finite values / x 必须只包含有限数值")
         squeeze = x.ndim == 1
         x = x.reshape(self.n_in, -1)
         E = np.zeros((self.N, x.shape[1]), dtype=complex)
@@ -260,7 +274,7 @@ class PhotonicMatrixProcessor:
     __call__ = optical_field
 
     def _add_readout_noise(self, y: np.ndarray, ideal: bool) -> np.ndarray:
-        """在探测后加入等效 AWGN。Add equivalent AWGN after detection."""
+        """Add equivalent AWGN after detection. / 在探测后加入等效 AWGN。"""
         if ideal:
             return y
         nz = self.noise
@@ -274,8 +288,8 @@ class PhotonicMatrixProcessor:
 
     def read_coherent(self, x, **kw) -> np.ndarray:
         """
-        相干（零差）探测：拿到带符号的实部。
         Coherent (homodyne) detection that recovers the signed real component.
+        相干（零差）探测：获取带符号的实部。
 
         物理上这需要引一路本振光提供相位参考，不是「测一下光强」那么简单。
         """
@@ -288,8 +302,8 @@ class PhotonicMatrixProcessor:
         return y2[:, 0] if squeeze else y2
 
     def read_intensity(self, x, **kw) -> np.ndarray:
-        """直接探测并返回标定后的功率量 ``gain^2 * |E|^2``。
-        Direct detection returning the calibrated power quantity ``gain^2 * |E|^2``.
+        """Direct detection returning calibrated ``gain^2 * |E|^2``.
+        直接探测并返回标定后的功率量 ``gain^2 * |E|^2``。
 
         噪声在平方检波之后加入，因此不会把探测器电噪声误当成光场扰动。返回值是
         经过系统标度校准的读出量，不是未标定的瓦特数；符号信息仍然丢失。
@@ -305,8 +319,8 @@ class PhotonicMatrixProcessor:
     # ------------------------------------------------------------------ 校准
     def calibrate(self) -> None:
         """
-        模拟一次理想表征校准：抵消静态相移控制偏置。
         Simulate ideal characterization that cancels static phase-control offsets.
+        模拟一次理想表征校准：抵消静态相移控制偏置。
 
         真实芯片的做法是逐台 MZI 扫描控制电压、测出实际相移曲线，再反推出
         控制量的修正表。这里直接用已知的 ``fab`` 偏移取反 —— 等价于「表征做得
@@ -323,7 +337,7 @@ class PhotonicMatrixProcessor:
         self.calibrated = True
 
     def reset_calibration(self) -> None:
-        """撤销校准。Reset to the uncalibrated state."""
+        """Reset to the uncalibrated state. / 撤销校准。"""
         self._cal_vt = np.zeros_like(self._fab_vt)
         self._cal_u = np.zeros_like(self._fab_u)
         self._cal_vt_phases = np.zeros(self.N)
@@ -332,7 +346,7 @@ class PhotonicMatrixProcessor:
 
     # ------------------------------------------------------------ 自检与报告
     def unitary_error(self) -> tuple[float, float]:
-        """编译回环误差。Compilation round-trip errors for U and V^T."""
+        """Compilation round-trip errors for U and V^T. / 编译回环误差。"""
         eu = np.linalg.norm(
             recompose_unitary(self.u_mzis, self.u_phases, self.N) - self.U_target)
         ev = np.linalg.norm(
@@ -341,7 +355,7 @@ class PhotonicMatrixProcessor:
 
     @property
     def mesh_depth(self) -> tuple[int, int]:
-        """两张网格的列数。Mesh depths for V^T and U; Reck worst case is ``2N-3``."""
+        """Mesh depths for V^T and U; Reck worst case is ``2N-3``. / 两张网格的深度。"""
         return (max(z.layer for z in self.vt_mzis) + 1 if self.vt_mzis else 0,
                 max(z.layer for z in self.u_mzis) + 1 if self.u_mzis else 0)
 
@@ -350,7 +364,7 @@ class PhotonicMatrixProcessor:
         return len(self.vt_mzis) + len(self.u_mzis)
 
     def mode_mzi_count(self) -> np.ndarray:
-        """每个空间模式参与的 MZI 数量。Number of MZIs touching each spatial mode.
+        """Number of MZIs touching each spatial mode. / 每个空间模式参与的 MZI 数量。
 
         这是 Reck 拓扑不均匀性的简单代理量，不是端到端光路追踪：光会在 MZI 中
         分束并迁移到其他模式，所以不能把最大计数严格解释为某条光路的真实插损。
@@ -362,30 +376,30 @@ class PhotonicMatrixProcessor:
         return cnt
 
     def path_mzi_count(self) -> np.ndarray:
-        """兼容旧 API。Compatibility alias; prefer :meth:`mode_mzi_count`."""
+        """Compatibility alias; prefer :meth:`mode_mzi_count`. / 兼容旧 API。"""
         return self.mode_mzi_count()
 
     def report(self) -> str:
-        """中英双语芯片规格报告。Human-readable bilingual chip report."""
+        """Human-readable English-first bilingual chip report. / 英文优先的双语报告。"""
         dv, du = self.mesh_depth
         eu, ev = self.unitary_error()
         cnt = self.mode_mzi_count()
         loss = self.noise.mzi_loss_db
         return "\n".join([
-            f"矩阵尺寸 / Matrix       : {self.n_out} x {self.n_in}   (模式 / modes N={self.N})",
-            f"MZI 总数 / MZI count    : {self.n_mzi}  "
+            f"Matrix / 矩阵尺寸       : {self.n_out} x {self.n_in}   (modes / 模式 N={self.N})",
+            f"MZI count / MZI 总数    : {self.n_mzi}  "
             f"(V^T {len(self.vt_mzis)} + U {len(self.u_mzis)})",
-            f"网格深度 / Mesh depth  : V^T {dv} 列/layers + U {du} 列/layers  "
+            f"Mesh depth / 网格深度  : V^T {dv} layers/列 + U {du} layers/列  "
             f"(Reck worst {max(2 * self.N - 3, 0)}; Clements {self.N})",
-            f"模式参与 / Mode count   : {cnt.tolist()}  "
+            f"Mode count / 模式参与   : {cnt.tolist()}  "
             f"(max/min={cnt.max()}/{cnt.min()}, topology proxy / 拓扑代理)",
-            f"损耗上界 / Loss bound   : {cnt.max() * loss:.2f} dB @ {loss} dB/MZI  "
+            f"Loss bound / 损耗上界   : {cnt.max() * loss:.2f} dB @ {loss} dB/MZI  "
             f"(not path tracing / 非路径追踪)",
-            f"奇异值 / Singular values: {np.array2string(self.S_target, precision=4)}",
-            f"VOA 增益 / VOA gain     : {self.gain:.4f}  (transmission <=1; electrical gain)",
-            f"编译回环误差 / Round trip: ||U_rebuild-U||={eu:.2e}   ||Vt_rebuild-Vt||={ev:.2e}",
-            f"校准状态 / Calibration  : "
-            f"{'已校准 / calibrated' if self.calibrated else '未校准 / uncalibrated'}",
+            f"Singular values / 奇异值: {np.array2string(self.S_target, precision=4)}",
+            f"VOA gain / 增益         : {self.gain:.4f}  (transmission <=1; electrical gain)",
+            f"Round trip / 编译回环误差: ||U_rebuild-U||={eu:.2e}   ||Vt_rebuild-Vt||={ev:.2e}",
+            f"Calibration / 校准状态  : "
+            f"{'calibrated / 已校准' if self.calibrated else 'uncalibrated / 未校准'}",
         ])
 
     def __repr__(self) -> str:

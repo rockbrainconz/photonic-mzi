@@ -1,14 +1,14 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "photonic-mzi"
 version = "1.0.0"
-description = "光子矩阵乘加电路级验证 / Circuit-level validation of photonic matrix multiply-accumulate"
+description = "Circuit-level validation of photonic matrix multiply-accumulate"
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "MIT" }
+license = "MIT"
 authors = [{ name = "yaoniming3k" }]
 keywords = [
     "photonics", "optical-computing", "mzi", "mach-zehnder",
@@ -18,7 +18,6 @@ classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
     "Intended Audience :: Education",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -47,11 +46,11 @@ where = ["src"]
 testpaths = ["tests", "src"]
 addopts = "--doctest-modules --doctest-glob='' --strict-markers"
 markers = [
-    "slow: 重型渲染用例（全帧扫描、GIF 导出）。日常开发用 -m 'not slow' 跳过。",
+    "slow: expensive rendering tests (all-frame scan and GIF export); skip with -m 'not slow'",
 ]
 filterwarnings = [
     "error::UserWarning",
-    # matplotlib 在无窗口后端下的固有噪声
+    # Expected Matplotlib behavior with a non-interactive backend.
     "ignore:Animation was deleted without rendering anything:UserWarning",
     "ignore:FigureCanvasAgg is non-interactive:UserWarning",
 ]
@@ -63,9 +62,8 @@ src = ["src", "tests"]
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "C4"]
 ignore = [
-    "E501",   # 行长交给 line-length 管，中文注释宽度统计不准
+    "E501",   # Enforce line length through the configured line-length value.
     "B008",
-    # 动画的帧脚本大量使用 dict(stage=..., narr=...) 这种关键字形式，
-    # 比 {"stage": ..., "narr": ...} 可读，属于刻意选择。
+    # Animation frames intentionally use readable dict(stage=..., narr=...) calls.
     "C408",
 ]
