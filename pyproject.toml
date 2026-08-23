@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "photonic-mzi"
 version = "1.0.0"
-description = "MZI 网格光计算电路级模拟器：把任意实矩阵编译成干涉仪网格，附逐行代码教学动画"
+description = "验证光处理器执行矩阵乘加的电路级可行性：把任意实矩阵编译成 MZI 干涉网格"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }

@@ -160,7 +160,7 @@ SNIPPETS = {
     ]),
 }
 
-STAGES = ["0 问题", "1 SVD 分解", "2 编译 MZI", "3 光注入",
+STAGES = ["0 核心问题", "1 SVD 分解", "2 编译 MZI", "3 光注入",
           "4 V^T 网格", "5 Σ 衰减", "6 U 网格", "7 探测输出", "8 非理想性"]
 
 
@@ -207,9 +207,9 @@ def build_script(opu, M, x, geo):
 
     # ---------------- 阶段 0：问题 ----------------
     for k, txt in enumerate([
-        "我们要算的是最普通的一件事：矩阵 × 向量  y = M x —— 现代神经网络的大量算术工作都由这类线性变换组成，具体占比随模型和运行阶段而变。",
+        "这个项目要验证一个核心问题：光处理器能否执行矩阵乘加 y = Mx？每个输出元素都是一组乘法后的求和。",
         f"M 是 {M.shape[0]}×{M.shape[1]} 的权重矩阵，x 是输入激活向量。电子芯片要做 {M.size} 次乘加。",
-        "光子芯片的思路完全不同：不去「算」，而是让光自己走一遍，出口的光强就是答案。",
+        "光子芯片把乘法与求和映射为复振幅编码、干涉叠加和通道缩放；光走过已编程光路后，再由相干探测读出带符号答案。",
         "问题是——理想线性光学擅长做「正交／酉变换」和「衰减」，怎么表达一个任意实矩阵？答案是 SVD。",
     ]):
         add(9, stage=0, snip="svd", line=-1, narr=txt, intro=k)
@@ -313,7 +313,7 @@ def build_script(opu, M, x, geo):
         narr="光抵达出口。相干探测取实部，再乘回电域增益 —— 就是全部的「计算」。",
         prop=dict(E=E.copy(), front=geo.x_out, act=[], st=list(stations)))
     add(14, stage=7, snip="detect", line=7,
-        narr=f"对比 CPU：误差 {np.linalg.norm(y_opt - y_cpu):.1e} —— 逼近双精度浮点的机器精度，两者严格等价。",
+        narr=f"对比 NumPy：误差 {np.linalg.norm(y_opt - y_cpu):.1e}。在本理想电路模型内，光路读出与数字矩阵乘法在浮点误差内一致。",
         prop=dict(E=E.copy(), front=geo.x_out, act=[], st=list(stations)),
         result=dict(y_cpu=y_cpu, y_opt=y_opt, noisy=None))
     add(14, stage=7, snip="detect", line=7,
