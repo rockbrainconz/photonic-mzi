@@ -1,0 +1,74 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "photonic-mzi"
+version = "1.0.0"
+description = "MZI 网格光计算模拟器：把任意矩阵编译成马赫-曾德尔干涉仪网格，附逐行代码教学动画"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "yaoniming3k" }]
+keywords = [
+    "photonics", "optical-computing", "mzi", "mach-zehnder",
+    "svd", "unitary-decomposition", "reck", "simulation", "visualization",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Education",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Topic :: Scientific/Engineering :: Visualization",
+]
+dependencies = ["numpy>=1.24"]
+
+[project.optional-dependencies]
+viz = ["matplotlib>=3.6", "pillow>=9.0"]
+dev = ["pytest>=7.0", "matplotlib>=3.6", "pillow>=9.0", "ruff>=0.4"]
+
+[project.urls]
+Homepage = "https://github.com/rockbrainconz/photonic-mzi"
+Issues = "https://github.com/rockbrainconz/photonic-mzi/issues"
+
+[project.scripts]
+photonic-mzi = "photonic_mzi.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "src"]
+addopts = "--doctest-modules --doctest-glob='' --strict-markers"
+markers = [
+    "slow: 重型渲染用例（全帧扫描、GIF 导出）。日常开发用 -m 'not slow' 跳过。",
+]
+filterwarnings = [
+    "error::UserWarning",
+    # matplotlib 在无窗口后端下的固有噪声
+    "ignore:Animation was deleted without rendering anything:UserWarning",
+    "ignore:FigureCanvasAgg is non-interactive:UserWarning",
+]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4"]
+ignore = [
+    "E501",   # 行长交给 line-length 管，中文注释宽度统计不准
+    "B008",
+    # 动画的帧脚本大量使用 dict(stage=..., narr=...) 这种关键字形式，
+    # 比 {"stage": ..., "narr": ...} 可读，属于刻意选择。
+    "C408",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/_reference_original.py" = ["ALL"]   # 这是原始参考实现，故意保留其缺陷

@@ -1,0 +1,68 @@
+# 参与开发
+
+## 环境
+
+```bash
+pip install -e ".[dev]"
+```
+
+## 日常循环
+
+```bash
+pytest -m "not slow"
+```
+
+118 项、约 2 秒。改完代码先跑这个。
+
+```bash
+pytest
+```
+
+完整套件，约 6 分钟。多出来的是三类重型渲染用例：494 帧字形扫描、
+GIF 导出、多种矩阵尺寸的构建。**提 PR 前至少本地跑一次完整套件。**
+
+```bash
+ruff check .
+```
+
+CI 只跑 `ruff check`，不跑 `ruff format`。本项目的代码排版（矩阵字面量的对齐、
+教学注释的缩进位置）是刻意安排的，交给自动格式化会破坏可读性。
+
+## 几条本项目特有的约定
+
+**动画不能自己编数。** 屏幕上显示的光场必须来自 `photonic_mzi.processor` 的真实计算，
+不允许为了画面好看另算一套。`tests/test_animation.py::test_animation_field_matches_real_simulation`
+守着这条线。
+
+**中文字形必须全帧扫描，不能抽样。** matplotlib 缺字形时只发一条 `UserWarning`，
+渲染出来是方框。这个问题已经漏过一次 —— 抽查了 9 个代表帧，漏掉了 `ᵀ`、`▶`、`₀` 三个符号。
+现在 `test_every_frame_renders_without_missing_glyphs` 会把全部 494 帧都画一遍。
+加新文案时，优先用 `$V^T$` 这类 mathtext，别直接用生僻 Unicode 符号。
+
+**芯片图按 `MZI.index` 高亮，不能按 `mode`。** 同一根波导上会有多台 MZI 分布在不同列，
+按 `mode` 匹配会让整行一起亮，和旁白「光同时抵达 N 台」对不上。
+
+**物理上说不通的简化要写进 docstring。** 这个项目的价值有一半在于说清楚
+「模型在哪里偏离了真实器件」。比如 `calibrate()` 的 docstring 明确写了它假设表征足够准、
+且对插损无能为力。新增近似时请照此办理。
+
+## 加新的噪声源
+
+`NoiseModel` 是个 dataclass，加字段即可。但要先想清楚它属于哪一类：
+
+- **静态**（流片后固定，可标定）→ 在 `PhotonicMatrixProcessor.__init__` 里采样一次，
+  并让 `calibrate()` 能抵消它
+- **动态**（逐脉冲在变，标不掉）→ 在 `_run_mesh` 里每次调用重新采样
+
+把两者混同正是被审查的那份原实现的问题之一，详见 [docs/review.md](docs/review.md) 的 P4。
+新增噪声源请同时补一条测试，验证它的「可重复性语义」符合预期
+（参考 `test_static_fab_error_is_repeatable_shot_to_shot`）。
+
+## 想实现 Clements 网格？
+
+这是目前投入产出比最高的改进，见 [docs/review.md](docs/review.md) 的 P7。
+关键难点是右乘消元之后要把 `T` 穿过对角相位阵对易过去。如果你做了，请：
+
+1. 保留 Reck 作为可选拓扑（`decompose_unitary(..., topology="reck"|"clements")`）
+2. 补一条测试，验证 Clements 的网格深度确实是 `N` 而不是 `2N-3`
+3. 补一条测试，验证 `path_mzi_count()` 在 Clements 下是均匀的

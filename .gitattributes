@@ -1,0 +1,7 @@
+# 仓库内统一用 LF，检出时交给各平台的 core.autocrlf 处理
+* text=auto eol=lf
+
+# 二进制资源不要做任何换行转换
+*.png binary
+*.gif binary
+*.mp4 binary
