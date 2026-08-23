@@ -67,7 +67,7 @@ CI 只跑 `ruff check`，不跑 `ruff format`。本项目的代码排版（矩�
 - **时间/空间相关漂移** → 必须显式保存状态或协方差，不能伪装成 i.i.d. 标量
 - **探测噪声** → 在相干或平方律检波之后加入，不能直接加到复光场
 
-把两者混同正是被审查的那份原实现的问题之一，详见 [docs/review.md](docs/review.md) 的 P4。
+对照样例曾混用这两种噪声，具体差异见 [docs/review.md](docs/review.md) 的 P4。
 新增噪声源请同时补一条测试，验证它的「可重复性语义」符合预期
 （参考 `test_static_fab_error_is_repeatable_shot_to_shot`）。
 

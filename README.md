@@ -176,7 +176,7 @@ pytest -m "not slow"
 
 测试覆盖：退化 / 结构化矩阵、随机稠密、非方阵、批量、能量守恒、
 噪声语义（固定偏置、每样本独立抖动、固定 VOA 误差）、光场/探测分层、校准边界、
-严格输入校验，以及与原始参考实现的逐项对照回归。
+严格输入校验，以及与单独收录的对照样例进行逐项回归比较。
 
 ```bash
 python benchmarks/bench_decomposition.py
@@ -184,11 +184,11 @@ python benchmarks/bench_decomposition.py
 
 ---
 
-## 项目由来：一份代码审查
+## 原创实现与对照验证
 
-这个仓库源于对一份广为流传的 MZI 模拟器实现的审查。原实现的**核心数学链条是对的** ——
-SVD → 酉矩阵 → MZI 网格的思路、消元公式的推导、正向传播的共轭转置逆序施加全都正确，
-随机稠密矩阵能稳定跑到 `1e-14`。但它有一个**会静默算错结果的 bug**。
+**本项目是独立设计和编写的原创实现，不是由其他模拟器修改或重构而来。**
+为验证算法边界，测试目录另行收录了一份 MZI 对照样例。该样例的核心数学链条在
+随机稠密矩阵上能稳定达到 `1e-14` 量级，但含有一个会在结构化矩阵上静默算错结果的缺陷。
 
 **根因**：`mzi_transfer_matrix(0, 0)` 并不是单位阵，而是**交换阵**。
 
@@ -197,9 +197,9 @@ theta=0,    phi=0   ->  [[0, 1], [1, 0]]     ← SWAP，会把两行对调
 theta=pi/2, phi=pi  ->  [[1, 0], [0, 1]]     ← 这才是单位阵
 ```
 
-原实现两个退化分支的取值恰好互换了，导致任何带结构性零的矩阵都会算错 —— 而且**不抛异常、不报警告**：
+对照样例中两个退化分支的取值恰好互换了，导致任何带结构性零的矩阵都会算错 —— 而且**不抛异常、不报警告**：
 
-| 用例 | 原实现误差 | 本实现误差 |
+| 用例 | 对照样例误差 | 本实现误差 |
 |---|---:|---:|
 | `identity(4)` | 6.7e-01 | 6.2e-17 |
 | `permutation(4)` | 1.7e+00 | 1.7e-16 |
@@ -216,11 +216,11 @@ phi   = np.angle(y) - np.angle(x) - np.pi
 theta = np.arctan2(np.abs(x), np.abs(y))     # y→0 得 pi/2，x→0 得 0
 ```
 
-**完整审查报告见 [docs/review.md](docs/review.md)**，另含 7 项物理建模改进
+**完整技术对照见 [docs/review.md](docs/review.md)**，另含 7 项物理建模改进
 （VOA 只能衰减、相干探测、插损失配、静态/动态误差分离……）
 和 7 项工程改进（非方阵、批量、独立 RNG、O(N⁵)→O(N³)……）。
 
-原始实现保留在 [`tests/_reference_original.py`](tests/_reference_original.py)，
+对照样例收录在 [`tests/_reference_comparison.py`](tests/_reference_comparison.py)，
 [`tests/test_regression_vs_reference.py`](tests/test_regression_vs_reference.py)
 把上面每一条差异都锁成了回归用例。
 

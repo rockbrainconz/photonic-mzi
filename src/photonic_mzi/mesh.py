@@ -29,7 +29,7 @@ def mzi_transfer_matrix(theta: float, phi: float) -> np.ndarray:
         phi   : 外相移，控制两路的相对相位
 
     注意 ``theta=0`` 时本矩阵是 **交换阵** 而非单位阵；单位阵对应
-    ``(theta=pi/2, phi=pi)``。这个反直觉的事实正是参考实现里那个 bug 的根源，
+    ``(theta=pi/2, phi=pi)``。这个反直觉的事实正是对照样例里那个 bug 的根源，
     详见 docs/review.md 的 B1。
     """
     s, c = np.sin(theta), np.cos(theta)
@@ -109,7 +109,7 @@ def decompose_unitary(U: np.ndarray) -> tuple[list[MZI], np.ndarray]:
             #   =>  tan(theta) = -exp(i*phi) * x / y
             # 选 phi 让右边变成非负实数，再用 arctan2 取 theta。
             # arctan2 天然覆盖 y->0 (theta->pi/2) 与 x->0 (theta->0) 两个退化极限，
-            # 不需要 if/else 特判 —— 参考实现的特判恰恰写反了。
+            # 不需要 if/else 特判 —— 对照样例的特判恰恰写反了。
             phi = np.angle(y) - np.angle(x) - np.pi
             # 相移器本质上模 2*pi，把 phi 折回 (-pi, pi]：既是物理事实
             # （热调相移器行程有限），也避免报出 -360 度这种没意义的数。

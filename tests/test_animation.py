@@ -44,7 +44,7 @@ def test_script_covers_every_stage(rig):
 
 
 def test_script_avoids_known_scientific_misstatements(rig):
-    """把已经审查确认的过度概括和错误术语锁死，避免动画文案回退。"""
+    """把已经验证的过度概括和错误术语锁死，避免动画文案回退。"""
     _, script, _ = rig
     text = "\n".join(f["narr"] for f in script)
     for forbidden in ["90% 的算力", "唯一拆成", "互不相干", "N 路激光"]:

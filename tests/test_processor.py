@@ -28,7 +28,7 @@ STRUCTURED = {
 # --------------------------------------------------------------------------- #
 @pytest.mark.parametrize("name", list(STRUCTURED))
 def test_structured_matrices(name):
-    """会命中退化分支的矩阵 —— 参考实现在这里静默算错。"""
+    """会命中退化分支的矩阵 —— 对照样例在这里静默算错。"""
     M = STRUCTURED[name]
     x = np.random.default_rng(abs(hash(name)) % 2**32).standard_normal(M.shape[1])
     y = PhotonicMatrixProcessor(M).read_coherent(x)

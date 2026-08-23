@@ -1,8 +1,8 @@
 """
-对照参考实现（tests/_reference_original.py，保留了原始缺陷）的回归测试。
+与独立对照样例（tests/_reference_comparison.py）的回归比较。
 
 这些用例把 docs/review.md 里 B1 那个 bug 的表现锁死：
-参考实现在结构化矩阵上静默算错，本实现必须算对。
+对照样例在结构化矩阵上静默算错，本实现必须算对。
 """
 from __future__ import annotations
 
@@ -11,9 +11,9 @@ import pytest
 
 from photonic_mzi import PhotonicMatrixProcessor
 
-from ._reference_original import PhotonicMatrixProcessor as ReferenceOPU
+from ._reference_comparison import PhotonicMatrixProcessor as ComparisonOPU
 
-# 参考实现只支持方阵，且不接受非方阵输入
+# 对照样例只支持方阵，且不接受非方阵输入
 CASES = {
     "identity(4)": np.eye(4),
     "permutation(4)": np.eye(4)[[2, 0, 3, 1]],
@@ -37,11 +37,11 @@ def test_reference_is_wrong_and_we_are_right(name):
     truth = M @ x
 
     ref_err = np.linalg.norm(
-        ReferenceOPU(M).forward_optical_simulation(x) - truth)
+        ComparisonOPU(M).forward_optical_simulation(x) - truth)
     our_err = np.linalg.norm(
         PhotonicMatrixProcessor(M).read_coherent(x) - truth)
 
-    assert ref_err > 1e-3, f"{name}: 参考实现本应在这里出错，回归用例可能失效了"
+    assert ref_err > 1e-3, f"{name}: 对照样例本应在这里出错，回归用例可能失效了"
     assert our_err < 1e-9, f"{name}: 本实现算错了 (err={our_err:.2e})"
 
 
@@ -53,20 +53,20 @@ def test_reference_and_ours_agree_on_random_dense(n):
     truth = M @ x
     scale = np.linalg.norm(truth)
     assert np.linalg.norm(
-        ReferenceOPU(M).forward_optical_simulation(x) - truth) / scale < 1e-11
+        ComparisonOPU(M).forward_optical_simulation(x) - truth) / scale < 1e-11
     assert np.linalg.norm(
         PhotonicMatrixProcessor(M).read_coherent(x) - truth) / scale < 1e-11
 
 
 def test_reference_uses_global_rng_and_ours_does_not():
-    """参考实现走全局 np.random，会污染调用方的随机流；本实现不会。"""
+    """对照样例走全局 np.random，会污染调用方的随机流；本实现不会。"""
     M = np.random.default_rng(0).standard_normal((4, 4))
     x = np.random.default_rng(1).standard_normal(4)
 
     np.random.seed(1234)
     before = np.random.random()
     np.random.seed(1234)
-    ReferenceOPU(M).forward_optical_simulation(x, add_noise=True)
+    ComparisonOPU(M).forward_optical_simulation(x, add_noise=True)
     assert np.random.random() != before          # 全局流被推进了
 
     np.random.seed(1234)

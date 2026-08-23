@@ -1,5 +1,6 @@
 """
-Photonic Matrix Multiplier Simulator (MZI Mesh & SVD Decomposition)  [ORIGINAL / 原始版本]
+Photonic Matrix Multiplier Simulator (MZI Mesh & SVD Decomposition)
+[COMPARISON FIXTURE / 对照样例]
 """
 import numpy as np
 

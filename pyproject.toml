@@ -71,4 +71,4 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/_reference_original.py" = ["ALL"]   # 这是原始参考实现，故意保留其缺陷
+"tests/_reference_comparison.py" = ["ALL"]   # 独立对照样例，故意保留其既有缺陷
