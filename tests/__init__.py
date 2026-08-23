@@ -1,1 +1,1 @@
-"""原创实现的测试包；另含一份故意保留缺陷的独立对照样例。"""
+"""photonic-mzi test suite / photonic-mzi 测试套件。"""

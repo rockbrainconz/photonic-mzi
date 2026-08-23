@@ -28,7 +28,7 @@ STRUCTURED = {
 # --------------------------------------------------------------------------- #
 @pytest.mark.parametrize("name", list(STRUCTURED))
 def test_structured_matrices(name):
-    """会命中退化分支的矩阵 —— 对照样例在这里静默算错。"""
+    """结构化矩阵覆盖零元素对应的退化极限。"""
     M = STRUCTURED[name]
     x = np.random.default_rng(abs(hash(name)) % 2**32).standard_normal(M.shape[1])
     y = PhotonicMatrixProcessor(M).read_coherent(x)

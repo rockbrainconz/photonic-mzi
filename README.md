@@ -2,6 +2,8 @@
 
 # photonic-mzi
 
+[中文](README.md) | [English](README.en.md)
+
 **验证光处理器执行矩阵乘加的电路级可行性 —— 把任意实矩阵编译成 MZI 网格，并让光学传播完成线性变换**
 
 [![CI](https://github.com/rockbrainconz/photonic-mzi/actions/workflows/ci.yml/badge.svg)](https://github.com/rockbrainconz/photonic-mzi/actions/workflows/ci.yml)
@@ -187,11 +189,11 @@ python examples/03_neural_layer.py          # 拿光子芯片跑一层神经网�
 pytest -m "not slow"
 ```
 
-140 项快速用例，约 3 秒。完整套件共 145 项（含逐帧字形扫描与 GIF 导出）。
+128 项快速用例，约 3 秒。完整套件共 133 项（含逐帧字形扫描与 GIF 导出）。
 
 测试覆盖：退化 / 结构化矩阵、随机稠密、非方阵、批量、能量守恒、
 噪声语义（固定偏置、每样本独立抖动、固定 VOA 误差）、光场/探测分层、校准边界、
-严格输入校验，以及与单独收录的对照样例进行逐项回归比较。
+严格输入校验，以及退化和结构化矩阵边界。
 
 ```bash
 python benchmarks/bench_decomposition.py
@@ -199,53 +201,10 @@ python benchmarks/bench_decomposition.py
 
 ---
 
-## 原创实现与对照验证
-
-**本项目是独立设计和编写的原创实现，不是由其他模拟器修改或重构而来。**
-为验证算法边界，测试目录另行收录了一份 MZI 对照样例。该样例的核心数学链条在
-随机稠密矩阵上能稳定达到 `1e-14` 量级，但含有一个会在结构化矩阵上静默算错结果的缺陷。
-
-**根因**：`mzi_transfer_matrix(0, 0)` 并不是单位阵，而是**交换阵**。
-
-```
-theta=0,    phi=0   ->  [[0, 1], [1, 0]]     ← SWAP，会把两行对调
-theta=pi/2, phi=pi  ->  [[1, 0], [0, 1]]     ← 这才是单位阵
-```
-
-对照样例中两个退化分支的取值恰好互换了，导致任何带结构性零的矩阵都会算错 —— 而且**不抛异常、不报警告**：
-
-| 用例 | 对照样例误差 | 本实现误差 |
-|---|---:|---:|
-| `identity(4)` | 6.7e-01 | 6.2e-17 |
-| `permutation(4)` | 1.7e+00 | 1.7e-16 |
-| `block-diag(4)` | **1.4e+01** | 2.6e-15 |
-| `rank-deficient` | 1.7e+00 | 5.0e-15 |
-
-用随机稠密矩阵测永远碰不到这条路径（`|x|` 或 `|y|` 恰好小于 `1e-15` 的概率为零）。
-但剪枝后的神经网络权重、one-hot 嵌入层、注意力掩码，恰恰全是结构化稀疏矩阵。
-
-修法是用 `arctan2` 直接取极限，特判整个删掉：
-
-```python
-phi   = np.angle(y) - np.angle(x) - np.pi
-theta = np.arctan2(np.abs(x), np.abs(y))     # y→0 得 pi/2，x→0 得 0
-```
-
-**完整技术对照见 [docs/review.md](docs/review.md)**，另含 7 项物理建模改进
-（VOA 只能衰减、相干探测、插损失配、静态/动态误差分离……）
-和 7 项工程改进（非方阵、批量、独立 RNG、O(N⁵)→O(N³)……）。
-
-对照样例收录在 [`tests/_reference_comparison.py`](tests/_reference_comparison.py)，
-[`tests/test_regression_vs_reference.py`](tests/test_regression_vs_reference.py)
-把上面每一条差异都锁成了回归用例。
-
----
-
 ## 已知限制
 
 - 用的是 **Reck 三角网格**，不是 Clements 矩形网格。两者 MZI 数量相同（`N(N-1)/2`），
-  但 Clements 光学深度更低且通常对均匀损耗更稳健。未实现，理由见
-  [docs/review.md](docs/review.md) 的 P7 —— 简单说是不想交付一份没经过充分验证的实现。
+  但 Clements 光学深度更低且通常对均匀损耗更稳健；当前版本尚未实现。
 - `fab_*` 只表示加性相移控制偏置，不表示会限制可达分光比的分束器制造偏差；
   `calibrate()` 也不补偿 VOA 误差或插损。
 - `drift_*` 是每输入样本独立的相位抖动，不描述真实热漂移的时间相关、空间相关和串扰。
@@ -257,6 +216,8 @@ theta = np.arctan2(np.abs(x), np.abs(y))     # y→0 得 pi/2，x→0 得 0
   非线性和器件间串扰。因此不能用本项目定量预测商用芯片性能。
 
 ## 参考
+
+更完整的模型边界与验证方法见 [技术验证说明](docs/validation.md)。
 
 - Reck et al., *Experimental realization of any discrete unitary operator*, PRL 73, 58 (1994)
 - Clements et al., *Optimal design for universal multiport interferometers*, Optica 3, 1460 (2016)

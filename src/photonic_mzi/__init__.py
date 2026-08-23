@@ -1,10 +1,14 @@
 """
-photonic-mzi — MZI 网格光计算模拟器
-====================================
+photonic-mzi — MZI 网格光计算模拟器 / MZI mesh photonic-computing simulator
+============================================================================
 
 验证光处理器执行矩阵乘加的电路级可行性：把任意实矩阵通过 SVD 编译成
 马赫-曾德尔干涉仪（MZI）网格，并检查理想传播与 ``M @ x`` 一致。
 它是电路级教学模型，不是商用芯片硬件复刻。
+
+Validate circuit-level photonic matrix multiply-accumulate by compiling any real
+matrix through SVD into Mach-Zehnder interferometer meshes and checking ideal
+propagation against ``M @ x``. This is a teaching model, not a hardware replica.
 
     [x] -> [V^T 酉变换网格] -> [Sigma 光衰减器] -> [U 酉变换网格] -> [y]
 

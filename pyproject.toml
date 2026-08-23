@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "photonic-mzi"
 version = "1.0.0"
-description = "验证光处理器执行矩阵乘加的电路级可行性：把任意实矩阵编译成 MZI 干涉网格"
+description = "光子矩阵乘加电路级验证 / Circuit-level validation of photonic matrix multiply-accumulate"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
@@ -69,6 +69,3 @@ ignore = [
     # 比 {"stage": ..., "narr": ...} 可读，属于刻意选择。
     "C408",
 ]
-
-[tool.ruff.lint.per-file-ignores]
-"tests/_reference_comparison.py" = ["ALL"]   # 独立对照样例，故意保留其既有缺陷

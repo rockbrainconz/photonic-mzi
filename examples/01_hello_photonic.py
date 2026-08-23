@@ -1,5 +1,5 @@
 """
-例 1：最小可运行示例 —— 把一个矩阵编译上光子芯片，跑一遍，和 CPU 对答案。
+例 1：最小可运行示例。Example 1: minimal photonic matrix multiplication.
 
     python examples/01_hello_photonic.py
 """
@@ -27,16 +27,17 @@ print(opu.report())
 y_cpu = M @ x
 y_opt = opu.read_coherent(x)
 
-print("\nCPU 数字计算 :", np.round(y_cpu, 6))
-print("理想光子芯片 :", np.round(y_opt, 6))
-print(f"绝对误差     : {np.linalg.norm(y_opt - y_cpu):.2e}")
+print("\n数字计算 / NumPy       :", np.round(y_cpu, 6))
+print("理想光处理器 / Ideal OPU:", np.round(y_opt, 6))
+print(f"绝对误差 / Abs. error   : {np.linalg.norm(y_opt - y_cpu):.2e}")
 
 # 非方阵、批量输入都支持
 W = np.random.default_rng(0).standard_normal((3, 7))
 X = np.random.default_rng(1).standard_normal((7, 128))
 err = np.linalg.norm(PhotonicMatrixProcessor(W).read_coherent(X) - W @ X)
-print(f"\n非方阵 (3x7) + 批量 128 路：误差 {err:.2e}")
+print(f"\n非方阵 + 批量 / Rectangular 3x7 + batch 128: error {err:.2e}")
 
 # 光电二极管只能测 |E|^2，符号在平方里丢了
-print("\n相干（零差）探测 :", np.round(opu.read_coherent(x), 4))
-print("直接光强探测     :", np.round(opu.read_intensity(x), 4), " <- 全为正，符号没了")
+print("\n相干探测 / Coherent detection:", np.round(opu.read_coherent(x), 4))
+print("直接探测 / Direct detection  :", np.round(opu.read_intensity(x), 4),
+      " <- 全为正，符号丢失 / non-negative; sign lost")

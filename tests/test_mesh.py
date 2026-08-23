@@ -25,7 +25,7 @@ def test_transfer_matrix_is_unitary(theta, phi):
 
 
 def test_theta_zero_is_a_swap_not_identity():
-    """这条反直觉的性质正是对照样例那个 bug 的根源，锁死它防止回退。"""
+    """锁定 theta=0 对应交换阵这一容易误解的器件性质。"""
     assert np.allclose(mzi_transfer_matrix(0.0, 0.0), [[0, 1], [1, 0]], atol=1e-15)
     assert not np.allclose(mzi_transfer_matrix(0.0, 0.0), np.eye(2))
 
@@ -75,7 +75,7 @@ def test_decompose_recompose_roundtrip(n):
     (np.fliplr(np.eye(5)), "anti-diagonal"),
 ])
 def test_decompose_handles_structured_unitaries(U, name):
-    """结构化酉矩阵会命中退化分支 —— 对照样例在这里全线崩溃。"""
+    """结构化酉矩阵覆盖零元素对应的退化极限。"""
     U = np.asarray(U, dtype=complex)
     n = U.shape[0]
     mzis, phases = decompose_unitary(U)

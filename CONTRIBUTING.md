@@ -1,5 +1,7 @@
 # 参与开发
 
+[中文](CONTRIBUTING.md) | [English](CONTRIBUTING.en.md)
+
 ## 环境
 
 ```bash
@@ -23,7 +25,7 @@ PYTHONPATH=src python -m photonic_mzi
 pytest -m "not slow"
 ```
 
-140 项、约 3 秒。改完代码先跑这个；完整套件当前共 145 项。
+128 项、约 3 秒。改完代码先跑这个；完整套件当前共 133 项。
 
 ```bash
 pytest
@@ -67,13 +69,12 @@ CI 只跑 `ruff check`，不跑 `ruff format`。本项目的代码排版（矩�
 - **时间/空间相关漂移** → 必须显式保存状态或协方差，不能伪装成 i.i.d. 标量
 - **探测噪声** → 在相干或平方律检波之后加入，不能直接加到复光场
 
-对照样例曾混用这两种噪声，具体差异见 [docs/review.md](docs/review.md) 的 P4。
 新增噪声源请同时补一条测试，验证它的「可重复性语义」符合预期
 （参考 `test_static_fab_error_is_repeatable_shot_to_shot`）。
 
 ## 想实现 Clements 网格？
 
-这是目前投入产出比最高的改进，见 [docs/review.md](docs/review.md) 的 P7。
+这是目前投入产出比最高的改进，背景见 [模型与验证说明](docs/validation.md)。
 关键难点是右乘消元之后要把 `T` 穿过对角相位阵对易过去。如果你做了，请：
 
 1. 保留 Reck 作为可选拓扑（`decompose_unitary(..., topology="reck"|"clements")`）

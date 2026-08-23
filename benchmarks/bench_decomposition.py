@@ -1,5 +1,6 @@
 """
-复杂度对比：对照样例（每台 MZI 构造 N×N 全矩阵再相乘）vs 本实现（就地两行更新）。
+本项目的规模扩展与批处理基准。
+Scaling and batch-throughput benchmark for this implementation.
 
     python benchmarks/bench_decomposition.py
 """
@@ -13,58 +14,52 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
-sys.path.insert(0, str(ROOT))
-
-from tests._reference_comparison import (  # noqa: E402
-    PhotonicMatrixProcessor as ComparisonOPU,
-)
 
 from photonic_mzi import PhotonicMatrixProcessor  # noqa: E402
 
 
 def timeit(fn, rep: int = 3) -> float:
+    """返回多次运行中的最短时间。Return the best of repeated timings."""
     best = float("inf")
     for _ in range(rep):
-        t = time.perf_counter()
+        started = time.perf_counter()
         fn()
-        best = min(best, time.perf_counter() - t)
+        best = min(best, time.perf_counter() - started)
     return best
 
 
 def main() -> None:
-    print(f"{'N':>4} | {'编译(参考)':>12} {'编译(本实现)':>13} {'加速':>7} | "
-          f"{'前向(参考)':>12} {'前向(本实现)':>13} {'加速':>7}")
-    print("-" * 88)
-    for N in [8, 16, 32, 64, 128]:
-        rng = np.random.default_rng(0)
-        A = rng.standard_normal((N, N))
-        v = rng.standard_normal(N)
-        rep = 3 if N <= 32 else 1
+    print("规模扩展 / Scaling")
+    print(f"{'N':>4} | {'编译 / compile':>18} | {'单次前向 / forward':>22} | "
+          f"{'相对误差 / rel. error':>23}")
+    print("-" * 78)
+    for n in [8, 16, 32, 64, 128]:
+        rng = np.random.default_rng(n)
+        matrix = rng.standard_normal((n, n))
+        vector = rng.standard_normal(n)
+        rep = 3 if n <= 32 else 1
 
-        t_ref_c = timeit(lambda A=A: ComparisonOPU(A), rep)
-        t_new_c = timeit(lambda A=A: PhotonicMatrixProcessor(A), rep)
+        compile_time = timeit(lambda matrix=matrix: PhotonicMatrixProcessor(matrix), rep)
+        opu = PhotonicMatrixProcessor(matrix)
+        forward_time = timeit(lambda opu=opu, vector=vector: opu.forward(vector), rep)
+        relative_error = (
+            np.linalg.norm(opu.read_coherent(vector) - matrix @ vector)
+            / np.linalg.norm(matrix @ vector)
+        )
 
-        ref, new = ComparisonOPU(A), PhotonicMatrixProcessor(A)
-        t_ref_f = timeit(lambda ref=ref, v=v: ref.forward_optical_simulation(v), rep)
-        t_new_f = timeit(lambda new=new, v=v: new.forward(v), rep)
+        print(f"{n:>4} | {compile_time * 1e3:>15.1f} ms | "
+              f"{forward_time * 1e3:>19.1f} ms | {relative_error:>23.2e}")
 
-        assert np.allclose(new.read_coherent(v), A @ v, atol=1e-9)
-
-        print(f"{N:>4} | {t_ref_c * 1e3:>10.1f}ms {t_new_c * 1e3:>11.1f}ms "
-              f"{t_ref_c / t_new_c:>6.1f}x | {t_ref_f * 1e3:>10.1f}ms "
-              f"{t_new_f * 1e3:>11.1f}ms {t_ref_f / t_new_f:>6.1f}x")
-
-    # 批量吞吐：对照样例完全不支持
-    N, B = 64, 256
-    A = np.random.default_rng(1).standard_normal((N, N))
-    X = np.random.default_rng(2).standard_normal((N, B))
-    opu = PhotonicMatrixProcessor(A)
-    t_batch = timeit(lambda: opu.forward(X), 1)
-    t_loop = timeit(lambda: [opu.forward(X[:, i]) for i in range(B)], 1)
-    print(f"\n批量 {N}x{N} @ {B} 路输入："
-          f"一次性 {t_batch * 1e3:.1f}ms  vs  逐条循环 {t_loop * 1e3:.1f}ms"
-          f"  ({t_loop / t_batch:.0f}x)")
-    print("对照样例没有批量接口，只能走逐条循环。")
+    n, batch = 64, 256
+    matrix = np.random.default_rng(1).standard_normal((n, n))
+    inputs = np.random.default_rng(2).standard_normal((n, batch))
+    opu = PhotonicMatrixProcessor(matrix)
+    batch_time = timeit(lambda: opu.forward(inputs), 1)
+    loop_time = timeit(lambda: [opu.forward(inputs[:, i]) for i in range(batch)], 1)
+    print(f"\n批处理 / Batch: {n}x{n} @ {batch} inputs")
+    print(f"一次调用 / one call: {batch_time * 1e3:.1f} ms")
+    print(f"逐条循环 / Python loop: {loop_time * 1e3:.1f} ms")
+    print(f"批处理加速 / batch speedup: {loop_time / batch_time:.0f}x")
 
 
 if __name__ == "__main__":

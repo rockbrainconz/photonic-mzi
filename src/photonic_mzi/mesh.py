@@ -1,5 +1,6 @@
 """
 器件层与编译层：2x2 马赫-曾德尔干涉仪，以及「酉矩阵 -> MZI 相移角」的分解。
+Device and compiler layer: 2x2 Mach-Zehnder interferometers and unitary-to-MZI decomposition.
 
 这一层不依赖 matplotlib，也不涉及任何物理噪声模型，只做纯粹的线性代数。
 """
@@ -23,14 +24,14 @@ __all__ = [
 # =============================================================================
 def mzi_transfer_matrix(theta: float, phi: float) -> np.ndarray:
     """
-    2x2 MZI 传输矩阵（幺正）。
+    2x2 MZI 传输矩阵（幺正）。Unitary 2x2 MZI transfer matrix.
 
         theta : 内相移，控制分光比（振幅路由）
         phi   : 外相移，控制两路的相对相位
 
     注意 ``theta=0`` 时本矩阵是 **交换阵** 而非单位阵；单位阵对应
-    ``(theta=pi/2, phi=pi)``。这个反直觉的事实正是对照样例里那个 bug 的根源，
-    详见 docs/review.md 的 B1。
+    ``(theta=pi/2, phi=pi)``。退化输入测试会锁定这个容易误解的器件性质。
+    Under this convention, theta=0 is a swap; the identity is theta=pi/2, phi=pi.
     """
     s, c = np.sin(theta), np.cos(theta)
     e = np.exp(1j * phi)
@@ -39,7 +40,7 @@ def mzi_transfer_matrix(theta: float, phi: float) -> np.ndarray:
 
 
 def apply_T_left(A: np.ndarray, m: int, theta: float, phi: float) -> None:
-    """``A <- T_m(theta,phi) @ A``，就地更新第 m/m+1 两行。O(列数) 而非 O(N^2)。"""
+    """``A <- T_m @ A``，就地更新两行。Update two rows in place in O(columns)."""
     s, c = np.sin(theta), np.cos(theta)
     e = np.exp(1j * phi)
     a, b = A[m].copy(), A[m + 1]
@@ -54,6 +55,7 @@ def apply_T_dagger_left(E: np.ndarray, m: int, theta: float | np.ndarray,
 
     ``theta`` / ``phi`` 可以是标量，也可以是与批量列数相同的一维数组；后者用于让
     每个输入样本拥有独立的动态相位抖动。``amp`` 是该器件的幅度透过率（插损）。
+    Arrays provide independent per-sample jitter; ``amp`` is amplitude transmission.
     """
     s, c = np.sin(theta), np.cos(theta)
     e = np.exp(-1j * phi)
@@ -67,7 +69,7 @@ def apply_T_dagger_left(E: np.ndarray, m: int, theta: float | np.ndarray,
 # =============================================================================
 @dataclass(frozen=True)
 class MZI:
-    """网格中的一台物理干涉仪。``mode`` 是它占用的低编号波导（占用 mode 与 mode+1）。"""
+    """一台网格 MZI；``mode`` 是低编号波导。One mesh MZI and its lower mode."""
 
     mode: int
     theta: float
@@ -79,6 +81,7 @@ class MZI:
 def decompose_unitary(U: np.ndarray) -> tuple[list[MZI], np.ndarray]:
     """
     Reck 三角分解：把 N x N 酉矩阵拆成 N(N-1)/2 台 MZI + N 个输出相移。
+    Reck decomposition of an N x N unitary into N(N-1)/2 MZIs and N output phases.
 
     .. math::
         T_k \\cdots T_1 U = \\mathrm{diag}(e^{i\\delta})
@@ -90,12 +93,12 @@ def decompose_unitary(U: np.ndarray) -> tuple[list[MZI], np.ndarray]:
     """
     U = np.asarray(U, dtype=complex)
     if U.ndim != 2 or U.shape[0] != U.shape[1] or U.shape[0] == 0:
-        raise ValueError(f"U 必须是非空方阵，收到 shape={U.shape}")
+        raise ValueError(f"U 必须是非空方阵 / U must be a non-empty square matrix; shape={U.shape}")
     if not np.all(np.isfinite(U)):
-        raise ValueError("U 必须只包含有限数值")
+        raise ValueError("U 必须只包含有限数值 / U must contain only finite values")
     N = U.shape[0]
     if not np.allclose(U.conj().T @ U, np.eye(N), atol=1e-10, rtol=1e-10):
-        raise ValueError("U 必须是酉矩阵（U^H @ U = I）")
+        raise ValueError("U 必须是酉矩阵 / U must be unitary (U^H @ U = I)")
 
     A = U.copy()
     elim: list[tuple[int, float, float]] = []
@@ -109,7 +112,7 @@ def decompose_unitary(U: np.ndarray) -> tuple[list[MZI], np.ndarray]:
             #   =>  tan(theta) = -exp(i*phi) * x / y
             # 选 phi 让右边变成非负实数，再用 arctan2 取 theta。
             # arctan2 天然覆盖 y->0 (theta->pi/2) 与 x->0 (theta->0) 两个退化极限，
-            # 不需要 if/else 特判 —— 对照样例的特判恰恰写反了。
+            # 不需要额外的 if/else 特判。
             phi = np.angle(y) - np.angle(x) - np.pi
             # 相移器本质上模 2*pi，把 phi 折回 (-pi, pi]：既是物理事实
             # （热调相移器行程有限），也避免报出 -360 度这种没意义的数。
@@ -133,7 +136,7 @@ def decompose_unitary(U: np.ndarray) -> tuple[list[MZI], np.ndarray]:
 
 
 def recompose_unitary(mzis: Iterable[MZI], diag_phases: np.ndarray, N: int) -> np.ndarray:
-    """由相移角重建酉矩阵。用于验证编译是否忠实（回环自检）。"""
+    """由相移角重建酉矩阵。Recompose a unitary for compilation round-trip checks."""
     A = np.zeros((N, N), dtype=complex)
     for k in range(N):
         A[k, k] = diag_phases[k]

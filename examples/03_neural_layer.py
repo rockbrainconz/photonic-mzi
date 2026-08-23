@@ -1,5 +1,5 @@
 """
-例 3：拿光子芯片跑一层真实的神经网络推理。
+例 3：光子线性层。Example 3: a photonic linear layer.
 
 「相对误差 10%、只剩 3 bit 精度」听上去很吓人，但分类任务真正在意的是 argmax
 有没有翻，不是每个 logit 的小数点后几位。这个例子把两者分开量化。
@@ -45,22 +45,23 @@ def evaluate(opu, ideal=False):
     return rel, acc
 
 
-print(f"数字基线：准确率 {acc_digital:.3f}    权重矩阵 W: {W.shape[0]}x{W.shape[1]}\n")
+print(f"数字基线 / Digital baseline: accuracy {acc_digital:.3f}; "
+      f"W={W.shape[0]}x{W.shape[1]}\n")
 
 opu_ideal = PhotonicMatrixProcessor(W)
 print(opu_ideal.report())
 rel, acc = evaluate(opu_ideal, ideal=True)
-print(f"\n理想光子芯片：准确率 {acc:.3f}，logit 相对误差 {rel:.2e}")
-print("注意 4x16 的矩阵占满了 16 根波导，但只有 4 个非零奇异值 —— "
-      "方形网格跑扁矩阵，大半芯片是空转的。\n")
+print(f"\n理想光处理器 / Ideal OPU: accuracy {acc:.3f}; relative logit error {rel:.2e}")
+print("4x16 矩阵占用 16 个模式但仅有 4 个非零奇异值 / "
+      "A 4x16 matrix uses 16 modes but has only four non-zero singular values.\n")
 
 # ------------------------------------------------------------------ #
 # A. 只扫独立动态相位抖动，插损置零，隔离随机误差影响
 # ------------------------------------------------------------------ #
 print("=" * 70)
-print("A. 每个输入样本独立的动态相位抖动（已校准静态偏置，无插损）")
+print("A. 每样本动态相位抖动 / Per-sample dynamic phase jitter")
 print("=" * 70)
-print(f"{'漂移 (rad)':>12} {'logit 相对误差':>16} {'有效 bit':>10} {'准确率':>10}")
+print(f"{'jitter/rad':>12} {'rel. logit err.':>16} {'effective bit':>14} {'accuracy':>10}")
 for drift in [0.0, 0.005, 0.01, 0.02, 0.05, 0.10, 0.20, 0.40]:
     opu = PhotonicMatrixProcessor(
         W, noise=NoiseModel(fab_theta=0.02, fab_phi=0.02,
@@ -70,17 +71,16 @@ for drift in [0.0, 0.005, 0.01, 0.02, 0.05, 0.10, 0.20, 0.40]:
     print(f"{drift:>12.3f} {rel * 100:>15.2f}% "
           f"{-np.log2(max(rel, 1e-18)):>10.1f} {acc:>10.3f}")
 
-print("\n-> logit 掉到 2~3 bit，分类准确率仍然纹丝不动。")
-print("   对这个人为构造且类别间隔较大的任务，低数值精度仍可能维持分类结果。")
-print("   这不是对其他模型、数据集或真实热漂移时间相关性的普遍结论。")
+print("\n-> 本合成任务在 2~3 bit logit 精度下仍保持分类 / This synthetic task retains classification.")
+print("   不能外推到其他模型或真实热漂移 / Do not generalize to other models or physical drift.")
 
 # ------------------------------------------------------------------ #
 # B. 插损是另一回事：它是确定性的，不是随机噪声
 # ------------------------------------------------------------------ #
 print("\n" + "=" * 70)
-print("B. 插损（确定性通道失配，不是随机噪声）")
+print("B. 插损 / Insertion loss (deterministic mismatch, not random noise)")
 print("=" * 70)
-print(f"{'插损(dB/MZI)':>14} {'串联上界':>10} {'logit 相对误差':>16} {'准确率':>10}")
+print(f"{'loss dB/MZI':>14} {'bound/dB':>10} {'rel. logit err.':>16} {'accuracy':>10}")
 for loss in [0.0, 0.02, 0.05, 0.1, 0.2]:
     opu = PhotonicMatrixProcessor(W, noise=NoiseModel(mzi_loss_db=loss), seed=7)
     rel, acc = evaluate(opu)
@@ -88,10 +88,9 @@ for loss in [0.0, 0.02, 0.05, 0.1, 0.2]:
     print(f"{loss:>14.2f} {worst:>9.1f}dB {rel * 100:>15.2f}% {acc:>10.3f}")
 
 cnt = PhotonicMatrixProcessor(W).mode_mzi_count()
-print(f"\n各空间模式参与的 MZI 数: {cnt.tolist()}")
-print(f"最多 {cnt.max()} 台 vs 最少 {cnt.min()} 台 —— 这是拓扑不均匀性的代理量。")
-print("光在干涉仪中会分束并迁移模式，所以它不是端到端物理路径计数。")
-print("这部分误差是**系统性**的：每次都一样，不会随机抖动。")
-print("真实系统会通过反向调低低损通道的 VOA 把它拉平（代价是牺牲整体光功率），")
-print("本模拟器的 calibrate() 只处理相移误差，没有做这个补偿，所以这里看到的是裸值。")
-print("\nClements 矩形网格通常能缩短并均衡光学深度，但不会消除器件离散性。")
+print(f"\n模式 MZI 参与数 / MZIs per mode: {cnt.tolist()}")
+print(f"最大/最小 / max/min: {cnt.max()}/{cnt.min()} — 拓扑代理 / topology proxy.")
+print("不是端到端路径计数 / This is not an end-to-end path count.")
+print("插损误差是确定性的 / Insertion-loss error is deterministic.")
+print("calibrate() 只处理相移偏置，不补偿插损 / calibrate() does not compensate loss.")
+print("\nClements 可缩短光学深度，但不会消除器件离散性 / Clements reduces depth, not variation.")

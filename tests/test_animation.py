@@ -50,9 +50,13 @@ def test_script_avoids_known_scientific_misstatements(rig):
     for forbidden in ["90% 的算力", "唯一拆成", "互不相干", "N 路激光"]:
         assert forbidden not in text
     assert "光处理器能否执行矩阵乘加" in text
-    assert "理想电路模型内" in text
+    assert "Core question" in text
+    assert "理想模型内" in text
+    assert "floating-point error" in text
     assert "分解不唯一" in text
+    assert "non-unique" in text
     assert "同一相干光源" in text
+    assert "one source" in text
 
 
 @pytest.mark.slow
