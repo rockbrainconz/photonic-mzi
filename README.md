@@ -30,7 +30,7 @@
 「这台干涉仪是相长还是相消」，看颜色就知道。
 
 ```bash
-pip install -e ".[viz]"
+pip install ".[viz]"
 python -m photonic_mzi
 ```
 
@@ -71,10 +71,23 @@ python -m photonic_mzi
 ## 安装
 
 ```bash
-pip install -e ".[viz]"
+pip install ".[viz]"
 ```
 
-只用计算内核、不需要动画的话，`pip install -e .` 即可（仅依赖 numpy）。
+只用计算内核、不需要动画的话，`pip install .` 即可（仅依赖 numpy）。
+
+开发用可编辑安装（**需要 pip ≥ 21.3**，纯 `pyproject.toml` 项目的可编辑安装依赖 PEP 660）：
+
+```bash
+python -m pip install --upgrade pip && pip install -e ".[dev]"
+```
+
+也可以完全不安装，直接从源码目录跑 —— `examples/` 和 `pytest` 都自带了
+`src/` 的路径处理：
+
+```bash
+PYTHONPATH=src python -m photonic_mzi
+```
 
 ## 用法
 

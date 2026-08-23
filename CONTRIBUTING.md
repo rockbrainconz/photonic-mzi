@@ -3,7 +3,18 @@
 ## 环境
 
 ```bash
-pip install -e ".[dev]"
+python -m pip install --upgrade pip && pip install -e ".[dev]"
+```
+
+可编辑安装需要 **pip ≥ 21.3**：本项目只有 `pyproject.toml`、没有 `setup.py`，
+旧版 pip 会直接报 `Directory cannot be installed in editable mode`。
+
+不想动全局 pip 的话，不安装也能开发 —— `tests/conftest.py` 会把 `src/` 加进
+`sys.path`，`examples/` 各自带了 import shim：
+
+```bash
+pytest -m "not slow"
+PYTHONPATH=src python -m photonic_mzi
 ```
 
 ## 日常循环
