@@ -5,7 +5,7 @@ photonic_mzi.animation — MZI 网格光计算「逐行 + 逐器件」教学动�
 物理发生了什么。整个流程拆成 9 个阶段：
 
     0 问题      1 SVD 分解   2 编译成 MZI 角度   3 光注入
-    4 V^T 网格   5 Σ 衰减器   6 U 网格            7 探测输出   8 噪声对比
+    4 V^T 网格   5 Σ 衰减器   6 U 网格            7 探测输出   8 非理想性
 
 用法
 ----
@@ -78,7 +78,7 @@ SNIPPETS = {
         "        self.N = max(M.shape)         # 芯片波导根数",
         "        Mp = zero_pad(M, self.N)      # 非方阵先补成方阵",
         "",
-        "        # 关键一步：任意实矩阵都能拆成 旋转·缩放·旋转",
+        "        # 关键一步：任意实矩阵都能拆成 正交变换·缩放·正交变换",
         "        U, S, Vt = np.linalg.svd(Mp)",
         "",
         "        self.gain   = S[0]            # VOA 只能衰减不能放大",
@@ -108,8 +108,8 @@ SNIPPETS = {
         "",
         "    return elim, np.diag(A)   # A 已被消成对角阵",
     ]),
-    "forward": ("photonic_mzi/processor.py  ·  forward  （光在芯片里跑一趟）", [
-        "def forward(self, x):",
+    "forward": ("photonic_mzi/processor.py  ·  optical_field  （芯片内传播）", [
+        "def optical_field(self, x):",
         "    E = pad(x)                     # 光场 = 复振幅向量",
         "",
         "    # ---- 阶段 1：V^T 酉变换网格 ----",
@@ -125,7 +125,7 @@ SNIPPETS = {
         "    for z in self.u_mzis:",
         "        apply_T_dagger_left(E, z.mode, z.theta, z.phi)",
         "",
-        "    return E[:n_out] * self.gain   # 探测 + 电域增益补偿",
+        "    return E[:n_out]               # 探测前物理复光场",
     ]),
     "mzi": ("photonic_mzi/mesh.py  ·  apply_T_dagger_left  （一台 MZI 内部）", [
         "def apply_T_dagger_left(E, m, theta, phi, amp=1.0):",
@@ -140,27 +140,28 @@ SNIPPETS = {
     ]),
     "detect": ("photonic_mzi/processor.py  ·  读出", [
         "    # 相干（零差）探测：能拿到带符号的实部",
-        "    y = np.real(E[:n_out] * self.gain)",
+        "    y = self.gain * np.real(E[:n_out])",
+        "    y = add_readout_noise(y)       # 噪声加在探测后的实数量上",
         "",
         "    # 直接光电探测就只剩 |E|^2，符号会丢失",
-        "    # y = np.abs(E[:n_out] * self.gain) ** 2",
+        "    # y = self.gain**2 * np.abs(E[:n_out]) ** 2",
         "",
         "    assert np.allclose(y, M @ x)    # 与 CPU 结果完全一致",
     ]),
-    "noise": ("photonic_mzi/processor.py  ·  NoiseModel  （物理现实）", [
+    "noise": ("photonic_mzi/processor.py  ·  NoiseModel  （简化敏感度模型）", [
         "nz = NoiseModel(",
-        "    fab_theta = 0.02,      # 静态制造误差：流片后固定，可标定",
-        "    drift_theta = 0.005,   # 动态热漂移：逐脉冲抖动，标不掉",
+        "    fab_theta = 0.02,      # 固定相移控制偏置，可理想标定",
+        "    drift_theta = 0.005,   # 每样本独立相位抖动（简化模型）",
         "    mzi_loss_db = 0.2,     # 每台 MZI 的插入损耗",
         "    voa_rel_err = 0.01,    # 衰减器设定误差",
-        "    detector_snr_db = 40,  # 探测端信噪比",
+        "    detector_snr_db = 40,  # 探测后等效相对 AWGN",
         ")",
         "y = opu.read_coherent(x, ideal=False)",
     ]),
 }
 
 STAGES = ["0 问题", "1 SVD 分解", "2 编译 MZI", "3 光注入",
-          "4 V^T 网格", "5 Σ 衰减", "6 U 网格", "7 探测输出", "8 噪声"]
+          "4 V^T 网格", "5 Σ 衰减", "6 U 网格", "7 探测输出", "8 非理想性"]
 
 
 # --------------------------------------------------------------------------- #
@@ -206,18 +207,18 @@ def build_script(opu, M, x, geo):
 
     # ---------------- 阶段 0：问题 ----------------
     for k, txt in enumerate([
-        "我们要算的是最普通的一件事：矩阵 × 向量  y = M x —— 神经网络里 90% 的算力都花在这。",
+        "我们要算的是最普通的一件事：矩阵 × 向量  y = M x —— 现代神经网络的大量算术工作都由这类线性变换组成，具体占比随模型和运行阶段而变。",
         f"M 是 {M.shape[0]}×{M.shape[1]} 的权重矩阵，x 是输入激活向量。电子芯片要做 {M.size} 次乘加。",
         "光子芯片的思路完全不同：不去「算」，而是让光自己走一遍，出口的光强就是答案。",
-        "问题是——光学元件只会做「旋转」和「衰减」，怎么表达一个任意矩阵？答案是 SVD。",
+        "问题是——理想线性光学擅长做「正交／酉变换」和「衰减」，怎么表达一个任意实矩阵？答案是 SVD。",
     ]):
         add(9, stage=0, snip="svd", line=-1, narr=txt, intro=k)
 
     # ---------------- 阶段 1：SVD ----------------
-    add(10, stage=1, snip="svd", line=6, narr="np.linalg.svd(M) —— 任意实矩阵都能唯一拆成 三段：M = U · Σ · V^T", svd=0)
-    add(10, stage=1, snip="svd", line=6, narr="V^T 是个正交矩阵：它只旋转向量，不改变长度。光学上 = 一张无损的干涉网格。", svd=1)
+    add(10, stage=1, snip="svd", line=6, narr="np.linalg.svd(M) —— 任意实矩阵都存在三段分解：M = U · Σ · V^T；重复或零奇异值时，分解不唯一。", svd=0)
+    add(10, stage=1, snip="svd", line=6, narr="V^T 是正交变换：保持向量长度，但也可能包含反射，不一定只是旋转。光学上对应一张理想无损干涉网格。", svd=1)
     add(10, stage=1, snip="svd", line=9, narr=f"Σ 是对角阵，只有 {N} 个数（奇异值），负责各方向的缩放。光学上 = 一列可调衰减器。", svd=2)
-    add(10, stage=1, snip="svd", line=6, narr="U 又是一个正交矩阵 = 第二张干涉网格。于是任意矩阵 = 旋转 → 缩放 → 旋转。", svd=3)
+    add(10, stage=1, snip="svd", line=6, narr="U 是第二个正交变换，对应另一张干涉网格。于是任意实矩阵 = 正交变换 → 缩放 → 正交变换。", svd=3)
     add(12, stage=1, snip="svd", line=9, narr=f"注意 σmax={opu.S_target[0]:.2f} > 1，而 VOA 只会衰减不会放大："
              f"整体归一化到 ≤1，增益放回电域补。", svd=4)
 
@@ -257,7 +258,7 @@ def build_script(opu, M, x, geo):
     stations = [(geo.x_in, E.copy())]
 
     add(12, stage=3, snip="forward", line=1,
-        narr="编译完了，开始发光。输入向量 x 被编码成 N 路激光的复振幅（负数 = 相位差 π）。",
+        narr="编译完了，开始发光。输入向量 x 被编码到同一相干光源分出的 N 路复振幅上（负数 = 相位差 π）。",
         prop=dict(E=E.copy(), front=geo.x_in, act=[], st=list(stations)))
 
     def run_mesh(mzis, phases, x_ph, xfun, depth, stage, tag):
@@ -271,7 +272,7 @@ def build_script(opu, M, x, geo):
             here = [z for z in mzis if z.layer == layer]
             xl = xfun(layer)
             add(3, stage=stage, snip="forward", line=5 if tag == "V^T" else 13,
-                narr=f"{tag} 网格第 {layer + 1}/{depth} 列：光同时抵达 {len(here)} 台 MZI（互不相干，天然并行）。",
+                narr=f"{tag} 网格第 {layer + 1}/{depth} 列：光同时抵达 {len(here)} 台 MZI；它们占用互不重叠的模式，因此可以并行作用。",
                 prop=dict(E=E.copy(), front=xl - 0.35, act=[z.index for z in here], st=list(stations)))
             for z in here:
                 before = E[[z.mode, z.mode + 1]].copy()
@@ -299,7 +300,7 @@ def build_script(opu, M, x, geo):
     stations.append((geo.x_voa, E.copy()))
     add(16, stage=5, snip="forward", line=9,
         narr=f"Σ 衰减器：{N} 个 VOA 各自把对应通道乘上 {np.array2string(opu.S_phys, precision=3)}。"
-             f"这是整条光路唯一「损失能量」的地方 —— 也是矩阵奇异值的物理化身。",
+             f"在理想无插损模型中，这是有意设置的衰减级 —— 矩阵奇异值的物理化身。",
         prop=dict(E=E.copy(), front=geo.x_voa, act=[], st=list(stations)),
         voa=dict(before=E_before_voa, after=E.copy(), s=opu.S_phys))
 
@@ -311,33 +312,33 @@ def build_script(opu, M, x, geo):
     add(10, stage=7, snip="detect", line=1,
         narr="光抵达出口。相干探测取实部，再乘回电域增益 —— 就是全部的「计算」。",
         prop=dict(E=E.copy(), front=geo.x_out, act=[], st=list(stations)))
-    add(14, stage=7, snip="detect", line=6,
+    add(14, stage=7, snip="detect", line=7,
         narr=f"对比 CPU：误差 {np.linalg.norm(y_opt - y_cpu):.1e} —— 逼近双精度浮点的机器精度，两者严格等价。",
         prop=dict(E=E.copy(), front=geo.x_out, act=[], st=list(stations)),
         result=dict(y_cpu=y_cpu, y_opt=y_opt, noisy=None))
-    add(14, stage=7, snip="detect", line=6,
-        narr="重点是：整条光路里没有时钟、没有乘法器。光以光速穿过芯片，延迟只有几十皮秒，且几乎不耗电。",
+    add(14, stage=7, snip="detect", line=7,
+        narr="无源干涉核心不需要电子乘法器，传播延迟很低；完整系统仍需要激光、调制器、DAC/ADC、探测器与控制电路，本模型不估算系统延迟或能耗。",
         prop=dict(E=E.copy(), front=geo.x_out, act=[], st=list(stations)),
         result=dict(y_cpu=y_cpu, y_opt=y_opt, noisy=None))
 
-    # ---------------- 阶段 8：噪声 ----------------
+    # ---------------- 阶段 8：简化非理想性 ----------------
     nz = NoiseModel(fab_theta=0.02, fab_phi=0.02, drift_theta=0.005, drift_phi=0.005,
                     mzi_loss_db=0.2, voa_rel_err=0.01, detector_snr_db=40)
     opu_n = PhotonicMatrixProcessor(M, noise=nz, seed=7)
     y_n = opu_n.read_coherent(x, ideal=False)
     rel = np.linalg.norm(y_n - y_cpu) / np.linalg.norm(y_cpu)
     add(12, stage=8, snip="noise", line=1,
-        narr="但真实芯片没这么理想。相移器靠热光效应工作，隔壁 MZI 一发热，这台的 θ 就漂了。",
+        narr="但真实芯片没这么理想。这里先用每个输入样本独立的相位抖动做敏感度分析；真实热漂移通常还有慢时间相关和空间串扰。",
         prop=dict(E=E.copy(), front=geo.x_out, act=[], st=list(stations)),
         result=dict(y_cpu=y_cpu, y_opt=y_opt, noisy=y_n))
     add(12, stage=8, snip="noise", line=4,
-        narr=f"再叠加每台 MZI 0.2dB 的插损。Reck 三角网格路径不等长，最长的波导要多穿 "
-             f"{opu.path_mzi_count().max() - opu.path_mzi_count().min()} 台 MZI —— 天然的通道失配。",
+        narr=f"再叠加每台 MZI 0.2dB 的统一插损。Reck 拓扑里空间模式参与器件数相差 "
+             f"{opu.mode_mzi_count().max() - opu.mode_mzi_count().min()} 台；这是非均匀性的代理，不是端到端路径追踪。",
         prop=dict(E=E.copy(), front=geo.x_out, act=[], st=list(stations)),
         result=dict(y_cpu=y_cpu, y_opt=y_opt, noisy=y_n))
     add(20, stage=8, snip="noise", line=7,
         narr=f"结果：相对误差 {rel * 100:.1f}%，只剩约 {-np.log2(rel):.0f} bit 有效精度。"
-             f"这就是光计算的真实处境 —— 快到离谱，但精度是要用工程手段一点点抠回来的。",
+             f"这是所选简化参数下的敏感度结果，不是对真实芯片 ENOB、能耗或延迟的预测。",
         prop=dict(E=E.copy(), front=geo.x_out, act=[], st=list(stations)),
         result=dict(y_cpu=y_cpu, y_opt=y_opt, noisy=y_n))
     return F
@@ -456,7 +457,7 @@ class Renderer:
             ("波导 / 模式数", f"{opu.N}"),
             ("MZI 总数", f"{len(opu.vt_mzis) + len(opu.u_mzis)} = 2×N(N-1)/2"),
             ("网格深度", f"V^T {g.dv} 列 + U {g.du} 列"),
-            ("各波导过 MZI 数", f"{opu.path_mzi_count().tolist()}"),
+            ("空间模式参与数", f"{opu.mode_mzi_count().tolist()}"),
             ("奇异值 σ", np.array2string(opu.S_target, precision=2)),
         ]
         y0 = yb + 0.10
@@ -615,7 +616,7 @@ class Renderer:
             if m < opu.n_out:
                 ax.text(g.x_out + 0.30, g.y(m), f"y{m}", ha="left", va="center",
                         fontsize=9.5, color=GREEN)
-        ax.text(g.x_in - 0.28, N - 0.35, "激光输入", ha="right", va="center",
+        ax.text(g.x_in - 0.28, N - 0.35, "相干光输入", ha="right", va="center",
                 fontsize=9, color=DIM, family=CN)
         ax.text(g.x_out + 0.30, N - 0.35, "光电探测", ha="left", va="center",
                 fontsize=9, color=DIM, family=CN)
@@ -726,7 +727,7 @@ class Renderer:
             if k >= 3:
                 ax.text(0.46, 0.62, "M  =  U · Σ · V$^T$", fontsize=22, color=AMBER,
                         family=CN, va="center")
-                ax.text(0.46, 0.34, "旋转  →  缩放  →  旋转\n这三件事，光学元件全都做得到",
+                ax.text(0.46, 0.34, "正交变换  →  缩放  →  正交变换\n理想线性光学可以实现这三部分",
                         fontsize=12.5, color=DIM, family=CN, va="center", linespacing=1.6)
             else:
                 ax.text(0.46, 0.5, f"电子芯片：{M.size} 次乘法 + "
@@ -755,10 +756,10 @@ class Renderer:
                                        sw + 0.018, N * ch + 0.105, fill=False,
                                        edgecolor=sc, lw=2.2, zorder=6))
             notes = {
-                0: ("任意实矩阵都能唯一拆成这三块 —— 这是 SVD 的存在性定理，不需要 M 有任何特殊结构", FG),
-                1: ("正交矩阵 V$^T$·V = I：只旋转不拉伸  →  对应无损干涉网格，光强一分不少", CYAN),
+                0: ("任意实矩阵都存在这样的 SVD；重复或零奇异值时分解并不唯一", FG),
+                1: ("正交矩阵 V$^T$·V = I：保持长度，可包含旋转与反射  →  对应理想无损干涉网格", CYAN),
                 2: ("Σ 只有对角线非零  →  每个通道各自独立衰减，一列 VOA 就够了", VIOLET),
-                3: ("U 是第二次旋转  →  第二张干涉网格。三块合起来 = 任意矩阵", GREEN),
+                3: ("U 是第二个正交变换  →  第二张干涉网格。三块合起来 = 任意实矩阵", GREEN),
                 4: (f"σ = {np.array2string(opu.S_target, precision=3)}   →   "
                     f"σ/σmax = {np.array2string(opu.S_phys, precision=3)}   "
                     f"电域再补回 ×{opu.gain:.3f}", VIOLET),
@@ -862,13 +863,13 @@ class Renderer:
             ax.plot([0.05, 0.96], [base, base], color="#3a465f", lw=1)
             e_id = np.linalg.norm(d["y_opt"] - d["y_cpu"])
             ax.text(0.05, 0.94, "CPU（灰）  vs  理想光子（绿）" +
-                    ("  vs  含噪光子（红）" if d["noisy"] is not None else ""),
+                    ("  vs  简化非理想（红）" if d["noisy"] is not None else ""),
                     fontsize=11.5, color=FG, family=CN, va="center")
             ax.text(0.05, 0.855, f"理想绝对误差 = {e_id:.2e}", fontsize=10.5,
                     color=GREEN, family=CN, va="center")
             if d["noisy"] is not None:
                 rel = np.linalg.norm(d["noisy"] - d["y_cpu"]) / np.linalg.norm(d["y_cpu"])
-                ax.text(0.45, 0.855, f"含噪相对误差 = {rel*100:.2f}%   ≈ "
+                ax.text(0.45, 0.855, f"非理想相对误差 = {rel*100:.2f}%   ≈ "
                                      f"{-np.log2(rel):.1f} bit 有效精度",
                         fontsize=10.5, color=RED, family=CN, va="center")
         elif st == 3:

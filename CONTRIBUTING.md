@@ -10,7 +10,7 @@ python -m pip install --upgrade pip && pip install -e ".[dev]"
 旧版 pip 会直接报 `Directory cannot be installed in editable mode`。
 
 不想动全局 pip 的话，不安装也能开发 —— `tests/conftest.py` 会把 `src/` 加进
-`sys.path`，`examples/` 各自带了 import shim：
+`sys.path`，`examples/` 会优先导入同仓库 `src/`：
 
 ```bash
 pytest -m "not slow"
@@ -23,13 +23,13 @@ PYTHONPATH=src python -m photonic_mzi
 pytest -m "not slow"
 ```
 
-118 项、约 2 秒。改完代码先跑这个。
+140 项、约 3 秒。改完代码先跑这个；完整套件当前共 145 项。
 
 ```bash
 pytest
 ```
 
-完整套件，约 6 分钟。多出来的是三类重型渲染用例：494 帧字形扫描、
+完整套件包含三类重型渲染用例：逐帧字形扫描、
 GIF 导出、多种矩阵尺寸的构建。**提 PR 前至少本地跑一次完整套件。**
 
 ```bash
@@ -53,17 +53,19 @@ CI 只跑 `ruff check`，不跑 `ruff format`。本项目的代码排版（矩�
 **芯片图按 `MZI.index` 高亮，不能按 `mode`。** 同一根波导上会有多台 MZI 分布在不同列，
 按 `mode` 匹配会让整行一起亮，和旁白「光同时抵达 N 台」对不上。
 
-**物理上说不通的简化要写进 docstring。** 这个项目的价值有一半在于说清楚
+**物理近似必须写进 docstring。** 这个项目的价值有一半在于说清楚
 「模型在哪里偏离了真实器件」。比如 `calibrate()` 的 docstring 明确写了它假设表征足够准、
 且对插损无能为力。新增近似时请照此办理。
 
 ## 加新的噪声源
 
-`NoiseModel` 是个 dataclass，加字段即可。但要先想清楚它属于哪一类：
+`NoiseModel` 是个 dataclass，加字段即可。但要先定义其统计和物理语义：
 
-- **静态**（流片后固定，可标定）→ 在 `PhotonicMatrixProcessor.__init__` 里采样一次，
-  并让 `calibrate()` 能抵消它
-- **动态**（逐脉冲在变，标不掉）→ 在 `_run_mesh` 里每次调用重新采样
+- **固定器件偏置** → 在 `PhotonicMatrixProcessor.__init__` 里采样一次；只有明确属于
+  可控相移偏置时，才让 `calibrate()` 抵消它
+- **每样本 i.i.d. 抖动** → 在 `_run_mesh` 里按 batch 列独立采样
+- **时间/空间相关漂移** → 必须显式保存状态或协方差，不能伪装成 i.i.d. 标量
+- **探测噪声** → 在相干或平方律检波之后加入，不能直接加到复光场
 
 把两者混同正是被审查的那份原实现的问题之一，详见 [docs/review.md](docs/review.md) 的 P4。
 新增噪声源请同时补一条测试，验证它的「可重复性语义」符合预期
@@ -76,4 +78,4 @@ CI 只跑 `ruff check`，不跑 `ruff format`。本项目的代码排版（矩�
 
 1. 保留 Reck 作为可选拓扑（`decompose_unitary(..., topology="reck"|"clements")`）
 2. 补一条测试，验证 Clements 的网格深度确实是 `N` 而不是 `2N-3`
-3. 补一条测试，验证 `path_mzi_count()` 在 Clements 下是均匀的
+3. 用真实拓扑深度或传输矩阵验证损耗均衡性，不要把 `mode_mzi_count()` 当端到端路径

@@ -1,19 +1,21 @@
 """
-例 2：静态制造误差可以标定，动态热漂移标不掉。
+例 2：静态相移控制偏置可以标定，独立动态相位抖动标不掉。
 
 这是把 fab_* 和 drift_* 分开建模的全部意义 —— 如果像参考实现那样把两者
-混进一个 noise_std，就会得出「光计算精度天生只有 3 bit」这种过于悲观的结论。
+混进一个 noise_std，就无法区分可表征的控制偏置与运行时随机抖动。
+
+注意：这里的 fab_* 不是分束器制造误差，drift_* 也只是每个样本独立的敏感度
+模型，不描述真实热漂移的慢时间相关性。
 
     python examples/02_noise_and_calibration.py
 """
 from __future__ import annotations
 
-try:
-    import photonic_mzi  # noqa: F401
-except ImportError:      # 未 pip install 时直接从源码目录跑
-    import pathlib
-    import sys
-    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
+import pathlib
+import sys
+
+# 直接运行仓库示例时始终使用同仓库源码，避免误导入环境中残留的旧安装版本。
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
 
 import numpy as np
 
@@ -34,28 +36,28 @@ def run(label: str, noise: NoiseModel, calibrate: bool) -> None:
     opu = PhotonicMatrixProcessor(M, noise=noise, seed=7)
     if calibrate:
         opu.calibrate()
-    # 多发几枪取平均，把逐脉冲抖动的统计特性体现出来
+    # 多次独立调用取平均，体现每样本 i.i.d. 抖动的统计特性
     b = np.mean([bits(opu.read_coherent(x, ideal=False)) for _ in range(32)])
     print(f"  {label:<34} {b:5.1f} bit")
 
 
 print("有效精度（越高越好）\n")
 
-print("只有静态制造误差 (fab 0.02 rad):")
+print("只有静态相移控制偏置 (fab 0.02 rad):")
 run("未校准", NoiseModel(fab_theta=0.02, fab_phi=0.02), calibrate=False)
 run("校准后", NoiseModel(fab_theta=0.02, fab_phi=0.02), calibrate=True)
-print("  -> 静态误差是确定性的，表征一次就能整个抵消掉\n")
+print("  -> 在本模型的理想表征假设下，加性相移偏置可以精确抵消\n")
 
-print("只有动态热漂移 (drift 0.02 rad):")
+print("只有独立动态相位抖动 (drift 0.02 rad):")
 run("未校准", NoiseModel(drift_theta=0.02, drift_phi=0.02), calibrate=False)
 run("校准后", NoiseModel(drift_theta=0.02, drift_phi=0.02), calibrate=True)
-print("  -> 逐脉冲在变，校准完全无能为力\n")
+print("  -> 每个样本独立变化，静态校准不能消除\n")
 
 print("两者都有 (fab 0.02 + drift 0.005):")
 nz = NoiseModel(fab_theta=0.02, fab_phi=0.02, drift_theta=0.005, drift_phi=0.005)
 run("未校准", nz, calibrate=False)
 run("校准后", nz, calibrate=True)
-print("  -> 校准把地板从 fab 抬到 drift，剩下的才是真实的物理极限\n")
+print("  -> 校准后误差由动态抖动主导；这不是完整硬件精度上限\n")
 
 print("再叠加插损与探测噪声（校准也管不了这些）:")
 full = NoiseModel(fab_theta=0.02, fab_phi=0.02, drift_theta=0.005, drift_phi=0.005,
@@ -63,8 +65,9 @@ full = NoiseModel(fab_theta=0.02, fab_phi=0.02, drift_theta=0.005, drift_phi=0.0
 run("校准后", full, calibrate=True)
 
 opu = PhotonicMatrixProcessor(M, noise=full, seed=7)
-cnt = opu.path_mzi_count()
-print(f"\n  各波导经过的 MZI 台数: {cnt.tolist()}")
-print(f"  最长与最短路径相差 {cnt.max() - cnt.min()} 台 "
-      f"= {(cnt.max() - cnt.min()) * full.mzi_loss_db:.1f} dB 的确定性通道失配")
-print("  这是 Reck 三角网格的固有缺陷，换 Clements 矩形网格可以消除。")
+cnt = opu.mode_mzi_count()
+print(f"\n  各空间模式参与的 MZI 数: {cnt.tolist()}")
+print(f"  参与数范围相差 {cnt.max() - cnt.min()} 台；按统一器件损耗折算为 "
+      f"{(cnt.max() - cnt.min()) * full.mzi_loss_db:.1f} dB 的拓扑不均匀性代理")
+print("  光会在 MZI 中分束并迁移模式，因此这不是端到端路径追踪。")
+print("  Clements 矩形网格通常可缩短并均衡光学深度，但不会消除所有器件误差。")

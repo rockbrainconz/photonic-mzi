@@ -5,12 +5,11 @@
 """
 from __future__ import annotations
 
-try:
-    import photonic_mzi  # noqa: F401
-except ImportError:      # 未 pip install 时直接从源码目录跑
-    import pathlib
-    import sys
-    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
+import pathlib
+import sys
+
+# 直接运行仓库示例时始终使用同仓库源码，避免误导入环境中残留的旧安装版本。
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
 
 import numpy as np
 

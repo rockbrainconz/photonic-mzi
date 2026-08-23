@@ -47,9 +47,14 @@ def apply_T_left(A: np.ndarray, m: int, theta: float, phi: float) -> None:
     A[m + 1] = e * c * a + s * b
 
 
-def apply_T_dagger_left(E: np.ndarray, m: int, theta: float, phi: float,
+def apply_T_dagger_left(E: np.ndarray, m: int, theta: float | np.ndarray,
+                        phi: float | np.ndarray,
                         amp: float = 1.0) -> None:
-    """``E <- T_m(theta,phi)^H @ E``，就地更新。``amp`` 是该器件的幅度透过率（插损）。"""
+    """``E <- T_m(theta,phi)^H @ E``，就地更新。
+
+    ``theta`` / ``phi`` 可以是标量，也可以是与批量列数相同的一维数组；后者用于让
+    每个输入样本拥有独立的动态相位抖动。``amp`` 是该器件的幅度透过率（插损）。
+    """
     s, c = np.sin(theta), np.cos(theta)
     e = np.exp(-1j * phi)
     a, b = E[m].copy(), E[m + 1]
@@ -83,8 +88,16 @@ def decompose_unitary(U: np.ndarray) -> tuple[list[MZI], np.ndarray]:
     返回 ``(mzi_list, diag_phases)``，``mzi_list`` 已按 **正向光传播顺序** 排好，
     并带上贪心分层得到的 ``layer``。
     """
+    U = np.asarray(U, dtype=complex)
+    if U.ndim != 2 or U.shape[0] != U.shape[1] or U.shape[0] == 0:
+        raise ValueError(f"U 必须是非空方阵，收到 shape={U.shape}")
+    if not np.all(np.isfinite(U)):
+        raise ValueError("U 必须只包含有限数值")
     N = U.shape[0]
-    A = np.array(U, dtype=complex, copy=True)
+    if not np.allclose(U.conj().T @ U, np.eye(N), atol=1e-10, rtol=1e-10):
+        raise ValueError("U 必须是酉矩阵（U^H @ U = I）")
+
+    A = U.copy()
     elim: list[tuple[int, float, float]] = []
 
     for col in range(N - 1):

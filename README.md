@@ -2,14 +2,15 @@
 
 # photonic-mzi
 
-**MZI 网格光计算模拟器 —— 把任意矩阵编译成一张干涉仪网格，让光走一趟就算完矩阵乘法**
+**MZI 网格光计算模拟器 —— 把任意实矩阵编译成干涉仪网格，演示一次光学传播如何完成线性变换**
 
 [![CI](https://github.com/rockbrainconz/photonic-mzi/actions/workflows/ci.yml/badge.svg)](https://github.com/rockbrainconz/photonic-mzi/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-模拟 Lightmatter Envise / 曦智 PACE 这类集成光子芯片的底层计算原理，
-**附一个逐行代码 + 逐器件光传播的教学动画**。
+演示集成光子矩阵乘法器所使用的 SVD、酉变换和干涉计算原理，
+**附一个逐行代码 + 逐器件光传播的教学动画**。这是线性光学电路级模型，
+不是 Maxwell/FDTD 电磁仿真，也不是任何商用芯片的硬件级复刻。
 
 ```
 输入 [x] ──▶ [ Vᵀ 酉变换 MZI 网格 ] ──▶ [ Σ 光衰减器 ] ──▶ [ U 酉变换 MZI 网格 ] ──▶ [y] 探测器
@@ -46,14 +47,14 @@ python -m photonic_mzi
 | 阶段 | 内容 |
 |---|---|
 | 0 问题 | `y = M x` 为什么值得用光去算 |
-| 1 SVD 分解 | `M = U · Σ · Vᵀ`，为什么任意矩阵都能拆成「旋转→缩放→旋转」 |
+| 1 SVD 分解 | `M = U · Σ · Vᵀ`，为什么任意实矩阵都存在「正交变换→缩放→正交变换」分解 |
 | 2 编译 MZI | 逐个元素消元，看 θ/φ 参数表怎么一行行填满、芯片上的 MZI 怎么一台台点亮 |
 | 3 光注入 | 输入向量怎么编码成复振幅（负数 = 相位差 π） |
 | 4 Vᵀ 网格 | 光波前逐列推进，每台 MZI 内部的 `a,b → a',b'` 干涉过程 + 能量守恒检查 |
-| 5 Σ 衰减 | 唯一主动损失能量的一级，奇异值的物理化身 |
+| 5 Σ 衰减 | 理想模型中有意设置的衰减级，奇异值的物理化身 |
 | 6 U 网格 | 同上 |
 | 7 探测输出 | 与 CPU 对答案，误差 `8.1e-16` |
-| 8 噪声 | 加上制造误差 / 热漂移 / 插损 / 探测噪声后，精度掉到多少 |
+| 8 非理想性 | 加上静态相移偏置、独立动态抖动、插损和等效读出噪声后的敏感度 |
 
 <table>
 <tr>
@@ -62,7 +63,7 @@ python -m photonic_mzi
 </tr>
 <tr>
 <td width="50%"><img src="docs/images/stage1-svd.png" alt="SVD 阶段"><br><sub><b>阶段 1</b>：M = U · Σ · Vᵀ</sub></td>
-<td width="50%"><img src="docs/images/stage8-noise.png" alt="噪声阶段"><br><sub><b>阶段 8</b>：CPU / 理想光子 / 含噪光子三方对比</sub></td>
+<td width="50%"><img src="docs/images/stage8-noise.png" alt="非理想性阶段"><br><sub><b>阶段 8</b>：CPU / 理想光子 / 简化非理想模型三方对比</sub></td>
 </tr>
 </table>
 
@@ -102,20 +103,22 @@ x = np.random.randn(5)
 opu.read_coherent(x)               # 与 M @ x 一致到 ~1e-15
 opu.read_coherent(np.random.randn(5, 256))   # 批量输入
 
-print(opu.report())                # 芯片规格：MZI 数、网格深度、路径插损、回环误差
+E = opu.optical_field(x)           # 探测前物理复光场；理想时为 (M @ x) / opu.gain
+
+print(opu.report())                # MZI 数、网格深度、损耗上界代理、回环误差
 ```
 
-加上物理非理想性，并演示「静态误差能标定、动态漂移标不掉」：
+加上简化非理想性，并演示「静态相移控制偏置能表征、独立动态抖动不能靠静态校准消除」：
 
 ```python
 from photonic_mzi import NoiseModel
 
 nz = NoiseModel(
-    fab_theta=0.02,        # 静态制造误差：流片后固定，可校准
-    drift_theta=0.005,     # 动态热漂移：逐脉冲抖动，标不掉
+    fab_theta=0.02,        # 固定相移控制偏置；理想表征模型可校准
+    drift_theta=0.005,     # 每个输入样本独立的相位抖动（i.i.d. 简化）
     mzi_loss_db=0.2,       # 每台 MZI 插损
     voa_rel_err=0.01,
-    detector_snr_db=40,
+    detector_snr_db=40,    # 探测后等效相对 AWGN，不是散粒/TIA 细节模型
 )
 opu = PhotonicMatrixProcessor(M, noise=nz, seed=7)
 
@@ -129,33 +132,39 @@ opu.read_coherent(x, ideal=False)  # 校准后
 | 方法 | 物理含义 |
 |---|---|
 | `read_coherent(x)` | 相干（零差）探测，需要本振光提供相位参考，能拿到**带符号**的实部 |
-| `read_intensity(x)` | 直接光电探测，光电二极管只能测 `\|E\|²`，**符号信息丢失** |
+| `read_intensity(x)` | 平方律直接探测后再加读出噪声，返回标定后的 `gain²·\|E\|²`，**符号信息丢失** |
 
 ## 示例
 
 ```bash
 python examples/01_hello_photonic.py        # 最小可运行示例
-python examples/02_noise_and_calibration.py # 静态误差可标定，动态漂移不可
+python examples/02_noise_and_calibration.py # 静态相移偏置与独立动态抖动
 python examples/03_neural_layer.py          # 拿光子芯片跑一层神经网络推理
 ```
 
 `02` 的实测结果，说明为什么必须把两类误差分开建模：
 
-| 噪声构成 | 未校准 | 校准后 |
+| 简化模型构成 | 未校准 | 校准后 |
 |---|---:|---:|
-| 只有静态制造误差 (fab 0.02 rad) | 4.2 bit | **48.0 bit** |
-| 只有动态热漂移 (drift 0.02 rad) | 3.8 bit | 3.8 bit |
-| 两者都有 (fab 0.02 + drift 0.005) | 4.1 bit | 5.8 bit |
+| 只有静态相移控制偏置 (fab 0.02 rad) | 4.2 bit | **48.0 bit**¹ |
+| 只有独立动态相位抖动 (drift 0.02 rad) | 3.9 bit | 3.9 bit |
+| 两者都有 (fab 0.02 + drift 0.005) | 4.2 bit | 5.9 bit |
 
-`03` 的实测结果，说明低精度对推理其实够用：
+¹ 48 bit 只表示“已知加性偏置被其精确负值抵消”的数值结果，不能外推成真实分束器
+制造误差或真实芯片的可校准精度。
 
-| 热漂移 (rad) | logit 相对误差 | 有效 bit | 分类准确率 |
+`03` 的实测结果，只说明这个类别间隔较大的合成任务在一定噪声下仍能保持分类结果：
+
+| 独立相位抖动 (rad) | logit 相对误差 | 有效 bit | 分类准确率 |
 |---:|---:|---:|---:|
-| 0.01 | 1.79% | 5.8 | 1.000 |
-| 0.05 | 9.05% | 3.5 | 1.000 |
-| 0.10 | 20.55% | 2.3 | 1.000 |
-| 0.20 | 54.52% | 0.9 | 0.995 |
-| 0.40 | 97.69% | 0.0 | 0.285 |
+| 0.01 | 2.01% | 5.6 | 1.000 |
+| 0.05 | 10.49% | 3.3 | 1.000 |
+| 0.10 | 22.76% | 2.1 | 1.000 |
+| 0.20 | 50.68% | 1.0 | 0.925 |
+| 0.40 | 86.28% | 0.2 | 0.383 |
+
+这里每个 batch 列都有独立抖动。该任务是类别间隔较大的合成数据，结果不能外推到
+其他模型、真实数据集或具有时间相关性的热漂移。
 
 ## 测试
 
@@ -163,10 +172,11 @@ python examples/03_neural_layer.py          # 拿光子芯片跑一层神经网�
 pytest -m "not slow"
 ```
 
-118 项，约 2 秒。完整套件（含 494 帧字形扫描与 GIF 导出）用 `pytest`，约 6 分钟。
+140 项快速用例，约 3 秒。完整套件共 145 项（含逐帧字形扫描与 GIF 导出）。
 
 测试覆盖：退化 / 结构化矩阵、随机稠密、非方阵、批量、能量守恒、
-噪声语义（静态可复现 vs 动态抖动）、校准、以及与原始参考实现的逐项对照回归。
+噪声语义（固定偏置、每样本独立抖动、固定 VOA 误差）、光场/探测分层、校准边界、
+严格输入校验，以及与原始参考实现的逐项对照回归。
 
 ```bash
 python benchmarks/bench_decomposition.py
@@ -219,12 +229,17 @@ theta = np.arctan2(np.abs(x), np.abs(y))     # y→0 得 pi/2，x→0 得 0
 ## 已知限制
 
 - 用的是 **Reck 三角网格**，不是 Clements 矩形网格。两者 MZI 数量相同（`N(N-1)/2`），
-  但 Clements 深度只有 `N`（Reck 是 `2N-3`），插损更均匀。未实现，理由见
+  但 Clements 光学深度更低且通常对均匀损耗更稳健。未实现，理由见
   [docs/review.md](docs/review.md) 的 P7 —— 简单说是不想交付一份没经过充分验证的实现。
-- `calibrate()` 只补偿相移误差，不补偿插损造成的通道失配（真实系统会用 VOA 反压拉平，
-  代价是牺牲整体光功率）。
+- `fab_*` 只表示加性相移控制偏置，不表示会限制可达分光比的分束器制造偏差；
+  `calibrate()` 也不补偿 VOA 误差或插损。
+- `drift_*` 是每输入样本独立的相位抖动，不描述真实热漂移的时间相关、空间相关和串扰。
+- `detector_snr_db` 是探测后的等效 AWGN；没有散粒噪声、本振、响应度和带宽模型。
+- `mode_mzi_count()` 只是空间模式参与器件数，报告中的损耗是串联上界估计，
+  不是端到端光路追踪。
 - 前向传播仍是 Python 里逐台 MZI 循环。同一列的 MZI 天然可并行，向量化后还能再快一个量级。
-- 没有建模波长相关性、偏振、非线性和器件间串扰。
+- 没有建模输入调制器、激光功率、DAC/ADC、系统能耗/延迟、波长相关性、偏振、
+  非线性和器件间串扰。因此不能用本项目定量预测商用芯片性能。
 
 ## 参考
 

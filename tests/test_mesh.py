@@ -104,3 +104,14 @@ def test_layers_are_conflict_free_and_bounded(n):
 def test_indices_are_sequential_in_forward_order():
     mzis, _ = decompose_unitary(random_unitary(5, seed=1))
     assert [z.index for z in mzis] == list(range(len(mzis)))
+
+
+@pytest.mark.parametrize("bad", [
+    np.ones((2, 3)),
+    np.ones((2, 2)),
+    np.array([[1.0, np.nan], [0.0, 1.0]]),
+    np.empty((0, 0)),
+])
+def test_decompose_rejects_nonunitary_or_malformed_input(bad):
+    with pytest.raises(ValueError):
+        decompose_unitary(bad)

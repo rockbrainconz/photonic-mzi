@@ -11,12 +11,11 @@
 """
 from __future__ import annotations
 
-try:
-    import photonic_mzi  # noqa: F401
-except ImportError:      # 未 pip install 时直接从源码目录跑
-    import pathlib
-    import sys
-    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
+import pathlib
+import sys
+
+# 直接运行仓库示例时始终使用同仓库源码，避免误导入环境中残留的旧安装版本。
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
 
 import numpy as np
 
@@ -56,10 +55,10 @@ print("注意 4x16 的矩阵占满了 16 根波导，但只有 4 个非零奇异
       "方形网格跑扁矩阵，大半芯片是空转的。\n")
 
 # ------------------------------------------------------------------ #
-# A. 只扫随机相位噪声（热漂移），插损置零，隔离出随机误差的影响
+# A. 只扫独立动态相位抖动，插损置零，隔离随机误差影响
 # ------------------------------------------------------------------ #
 print("=" * 70)
-print("A. 只有随机热漂移（已出厂校准，无插损）")
+print("A. 每个输入样本独立的动态相位抖动（已校准静态偏置，无插损）")
 print("=" * 70)
 print(f"{'漂移 (rad)':>12} {'logit 相对误差':>16} {'有效 bit':>10} {'准确率':>10}")
 for drift in [0.0, 0.005, 0.01, 0.02, 0.05, 0.10, 0.20, 0.40]:
@@ -72,7 +71,8 @@ for drift in [0.0, 0.005, 0.01, 0.02, 0.05, 0.10, 0.20, 0.40]:
           f"{-np.log2(max(rel, 1e-18)):>10.1f} {acc:>10.3f}")
 
 print("\n-> logit 掉到 2~3 bit，分类准确率仍然纹丝不动。")
-print("   低精度对推理是可接受的 —— 这正是光计算敢做 AI 加速器的前提。")
+print("   对这个人为构造且类别间隔较大的任务，低数值精度仍可能维持分类结果。")
+print("   这不是对其他模型、数据集或真实热漂移时间相关性的普遍结论。")
 
 # ------------------------------------------------------------------ #
 # B. 插损是另一回事：它是确定性的，不是随机噪声
@@ -80,17 +80,18 @@ print("   低精度对推理是可接受的 —— 这正是光计算敢做 AI �
 print("\n" + "=" * 70)
 print("B. 插损（确定性通道失配，不是随机噪声）")
 print("=" * 70)
-print(f"{'插损(dB/MZI)':>14} {'最坏路径':>10} {'logit 相对误差':>16} {'准确率':>10}")
+print(f"{'插损(dB/MZI)':>14} {'串联上界':>10} {'logit 相对误差':>16} {'准确率':>10}")
 for loss in [0.0, 0.02, 0.05, 0.1, 0.2]:
     opu = PhotonicMatrixProcessor(W, noise=NoiseModel(mzi_loss_db=loss), seed=7)
     rel, acc = evaluate(opu)
-    worst = opu.path_mzi_count().max() * loss
+    worst = opu.mode_mzi_count().max() * loss
     print(f"{loss:>14.2f} {worst:>9.1f}dB {rel * 100:>15.2f}% {acc:>10.3f}")
 
-cnt = PhotonicMatrixProcessor(W).path_mzi_count()
-print(f"\n各波导经过的 MZI 台数: {cnt.tolist()}")
-print(f"最长路径 {cnt.max()} 台 vs 最短 {cnt.min()} 台 —— Reck 三角网格的固有缺陷。")
+cnt = PhotonicMatrixProcessor(W).mode_mzi_count()
+print(f"\n各空间模式参与的 MZI 数: {cnt.tolist()}")
+print(f"最多 {cnt.max()} 台 vs 最少 {cnt.min()} 台 —— 这是拓扑不均匀性的代理量。")
+print("光在干涉仪中会分束并迁移模式，所以它不是端到端物理路径计数。")
 print("这部分误差是**系统性**的：每次都一样，不会随机抖动。")
 print("真实系统会通过反向调低低损通道的 VOA 把它拉平（代价是牺牲整体光功率），")
 print("本模拟器的 calibrate() 只处理相移误差，没有做这个补偿，所以这里看到的是裸值。")
-print("\n换成 Clements 矩形网格能从根本上消除路径不均匀 —— 见 docs/review.md 的 P7。")
+print("\nClements 矩形网格通常能缩短并均衡光学深度，但不会消除器件离散性。")
