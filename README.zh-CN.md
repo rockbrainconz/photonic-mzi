@@ -6,7 +6,7 @@
 
 **验证光处理器执行矩阵乘加的电路级可行性 —— 把任意实矩阵编译成 MZI 网格，并让光学传播完成线性变换**
 
-[![CI](https://github.com/rockbrainconz/photonic-mzi/actions/workflows/ci.yml/badge.svg)](https://github.com/rockbrainconz/photonic-mzi/actions/workflows/ci.yml)
+[![CI](https://github.com/yaoniming3k/photonic-mzi/actions/workflows/ci.yml/badge.svg)](https://github.com/yaoniming3k/photonic-mzi/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 

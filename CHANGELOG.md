@@ -20,6 +20,8 @@ and [Semantic Versioning](https://semver.org/).
 
 ### Documentation
 
+- Updated canonical repository, CI badge, issue tracker, and release links after the
+  transfer to `yaoniming3k/photonic-mzi`.
 - Made English the default language for repository metadata, unsuffixed documentation,
   package metadata, CLI output, examples, CI labels, and generated visual assets; Chinese
   translations now use the `.zh-CN` suffix.
@@ -73,4 +75,4 @@ non-idealities, and a bilingual teaching animation.
 - Forward propagation still loops over MZIs in Python.
 - Wavelength dependence, polarization, nonlinearities, and device crosstalk are not modeled.
 
-[1.0.0]: https://github.com/rockbrainconz/photonic-mzi/releases/tag/v1.0.0
+[1.0.0]: https://github.com/yaoniming3k/photonic-mzi/releases/tag/v1.0.0

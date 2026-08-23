@@ -6,7 +6,7 @@
 
 **An electrical-circuit-level feasibility demonstration of photonic matrix multiply-accumulate — compile any real matrix into MZI meshes and execute the linear transform through optical propagation**
 
-[![CI](https://github.com/rockbrainconz/photonic-mzi/actions/workflows/ci.yml/badge.svg)](https://github.com/rockbrainconz/photonic-mzi/actions/workflows/ci.yml)
+[![CI](https://github.com/yaoniming3k/photonic-mzi/actions/workflows/ci.yml/badge.svg)](https://github.com/yaoniming3k/photonic-mzi/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 

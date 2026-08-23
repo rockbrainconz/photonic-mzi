@@ -17,6 +17,7 @@
 
 ### 文档
 
+- 项目转移到 `yaoniming3k/photonic-mzi` 后，更新规范仓库地址、CI 徽章、问题追踪和发行链接。
 - 将仓库元数据、无语言后缀文档、包元数据、CLI 输出、示例、CI 名称和生成的视觉素材
   统一设为英文默认；中文译本统一使用 `.zh-CN` 后缀。
 - README、模型验证说明、贡献指南、变更记录、公开 API、示例和动画全部提供中英文版本。
@@ -71,4 +72,4 @@
 - 前向传播仍是逐台 MZI 的 Python 循环，同一列尚未向量化。
 - 未建模波长相关性、偏振、非线性与器件间串扰。
 
-[1.0.0]: https://github.com/rockbrainconz/photonic-mzi/releases/tag/v1.0.0
+[1.0.0]: https://github.com/yaoniming3k/photonic-mzi/releases/tag/v1.0.0
