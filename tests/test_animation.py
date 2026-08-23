@@ -65,6 +65,8 @@ def test_every_frame_renders_without_missing_glyphs(rig):
     matplotlib 的缺字形警告走的是 _api.warn_external，不是标准 warnings，
     所以这里直接打补丁把它接住。抽样检查过一次漏了两个符号，必须全帧扫。
     """
+    assert anim.CN_FONT != "DejaVu Sans", (
+        "完整动画测试需要 CJK 字体 / full animation tests require a CJK font")
     _, script, r = rig
     missing: set[str] = set()
 

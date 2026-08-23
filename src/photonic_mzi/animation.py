@@ -27,6 +27,7 @@ import argparse
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib import font_manager
 from matplotlib.patches import Circle, FancyBboxPatch, Rectangle
 
 from .mesh import apply_T_dagger_left, apply_T_left, mzi_transfer_matrix
@@ -35,8 +36,26 @@ from .processor import NoiseModel, PhotonicMatrixProcessor
 # --------------------------------------------------------------------------- #
 # 配色与字体
 # --------------------------------------------------------------------------- #
-CN = ["Microsoft YaHei", "SimHei", "sans-serif"]
-MONO = ["Consolas", "Microsoft YaHei", "monospace"]
+_INSTALLED_FONTS = {font.name for font in font_manager.fontManager.ttflist}
+
+
+def _pick_font(*candidates: str) -> str:
+    """选择当前平台已安装的第一个字体。Pick the first installed font."""
+    return next((name for name in candidates if name in _INSTALLED_FONTS), "DejaVu Sans")
+
+
+CN_FONT = _pick_font(
+    "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", "SimHei",
+    "Noto Sans CJK SC", "Noto Sans CJK JP", "Noto Sans CJK TC",
+    "WenQuanYi Zen Hei", "Arial Unicode MS",
+)
+MONO_FONT = _pick_font(
+    "Consolas", "Noto Sans Mono CJK SC", "Noto Sans Mono CJK JP",
+    "Sarasa Mono SC", "Microsoft YaHei", "Noto Sans CJK SC",
+    "Noto Sans CJK JP", "PingFang SC",
+)
+CN = [CN_FONT]
+MONO = [MONO_FONT]
 mpl.rcParams["font.sans-serif"] = CN
 mpl.rcParams["axes.unicode_minus"] = False
 
