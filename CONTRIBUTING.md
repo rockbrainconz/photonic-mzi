@@ -34,6 +34,20 @@ visual text or layout:
 python tools/generate_docs_assets.py
 ```
 
+## Release process
+
+1. Move completed changelog entries from `Unreleased` into the new version section.
+2. Update the version in `pyproject.toml` and `photonic_mzi.__version__`, then run the
+   full test, lint, build, and `twine check --strict` suite.
+3. Merge the release commit into `main` and wait for CI to pass.
+4. Publish a GitHub Release tagged `v<version>`. The `Publish to PyPI` workflow verifies
+   that the tag matches the package metadata, builds fresh distributions, and uploads
+   them through PyPI Trusted Publishing.
+
+The `pypi` GitHub environment and the matching PyPI Trusted Publisher must stay scoped
+to `.github/workflows/release.yml`. PyPI versions are immutable; never reuse a released
+version number.
+
 ## Project-specific rules
 
 **The animation must use real computed values.** Optical fields shown on screen must

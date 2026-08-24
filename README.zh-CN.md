@@ -2,13 +2,14 @@
 
 # photonic-mzi
 
-[English](README.md) | [简体中文](README.zh-CN.md)
+[English](https://github.com/yaoniming3k/photonic-mzi/blob/main/README.md) | [简体中文](https://github.com/yaoniming3k/photonic-mzi/blob/main/README.zh-CN.md)
 
 **验证光处理器执行矩阵乘加的电路级可行性 —— 把任意实矩阵编译成 MZI 网格，并让光学传播完成线性变换**
 
 [![CI](https://github.com/yaoniming3k/photonic-mzi/actions/workflows/ci.yml/badge.svg)](https://github.com/yaoniming3k/photonic-mzi/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/photonic-mzi.svg)](https://pypi.org/project/photonic-mzi/)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/yaoniming3k/photonic-mzi/blob/main/LICENSE)
 
 本项目的核心目标是验证一件事：**光处理器能否执行矩阵乘加**。它用 SVD、酉变换、
 MZI 干涉网格和光学衰减器，把 `y = Mx`（批量时为 `Y = MX`）建立成一条可运行、
@@ -40,7 +41,7 @@ MZI 干涉网格和光学衰减器，把 `y = Mx`（批量时为 `Y = MX`）建�
 ## 这个动画在讲什么
 
 <div align="center">
-<img src="docs/images/demo.gif" alt="MZI 网格光计算教学动画" width="100%">
+<img src="https://raw.githubusercontent.com/yaoniming3k/photonic-mzi/main/docs/images/demo.gif" alt="MZI 网格光计算教学动画" width="100%">
 </div>
 
 屏幕**左边是正在执行的代码**（高亮当前行），**右边是这一行在光子芯片上物理发生了什么**。
@@ -48,7 +49,7 @@ MZI 干涉网格和光学衰减器，把 `y = Mx`（批量时为 `Y = MX`）建�
 「这台干涉仪是相长还是相消」，看颜色就知道。
 
 ```bash
-pip install ".[viz]"
+python -m pip install "photonic-mzi[viz]"
 python -m photonic_mzi
 ```
 
@@ -75,12 +76,12 @@ python -m photonic_mzi
 
 <table>
 <tr>
-<td width="50%"><img src="docs/images/stage2-compile.png" alt="编译阶段"><br><sub><b>阶段 2</b>：矩阵消元 ↔ MZI 参数表同步填充</sub></td>
-<td width="50%"><img src="docs/images/stage4-interference.png" alt="干涉阶段"><br><sub><b>阶段 4</b>：单台 MZI 的干涉与能量守恒</sub></td>
+<td width="50%"><img src="https://raw.githubusercontent.com/yaoniming3k/photonic-mzi/main/docs/images/stage2-compile.png" alt="编译阶段"><br><sub><b>阶段 2</b>：矩阵消元 ↔ MZI 参数表同步填充</sub></td>
+<td width="50%"><img src="https://raw.githubusercontent.com/yaoniming3k/photonic-mzi/main/docs/images/stage4-interference.png" alt="干涉阶段"><br><sub><b>阶段 4</b>：单台 MZI 的干涉与能量守恒</sub></td>
 </tr>
 <tr>
-<td width="50%"><img src="docs/images/stage1-svd.png" alt="SVD 阶段"><br><sub><b>阶段 1</b>：M = U · Σ · Vᵀ</sub></td>
-<td width="50%"><img src="docs/images/stage8-noise.png" alt="非理想性阶段"><br><sub><b>阶段 8</b>：CPU / 理想光子 / 简化非理想模型三方对比</sub></td>
+<td width="50%"><img src="https://raw.githubusercontent.com/yaoniming3k/photonic-mzi/main/docs/images/stage1-svd.png" alt="SVD 阶段"><br><sub><b>阶段 1</b>：M = U · Σ · Vᵀ</sub></td>
+<td width="50%"><img src="https://raw.githubusercontent.com/yaoniming3k/photonic-mzi/main/docs/images/stage8-noise.png" alt="非理想性阶段"><br><sub><b>阶段 8</b>：CPU / 理想光子 / 简化非理想模型三方对比</sub></td>
 </tr>
 </table>
 
@@ -89,12 +90,17 @@ python -m photonic_mzi
 ## 安装
 
 ```bash
-pip install ".[viz]"
+python -m pip install "photonic-mzi[viz]"
 ```
 
-只用计算内核、不需要动画的话，`pip install .` 即可（仅依赖 numpy）。
+只用计算内核、不需要动画（仅依赖 NumPy）时：
 
-开发用可编辑安装（**需要 pip ≥ 21.3**，纯 `pyproject.toml` 项目的可编辑安装依赖 PEP 660）：
+```bash
+python -m pip install photonic-mzi
+```
+
+从源码参与开发时，可编辑安装**需要 pip ≥ 21.3**；纯 `pyproject.toml`
+项目的可编辑安装依赖 PEP 660：
 
 ```bash
 python -m pip install --upgrade pip && pip install -e ".[dev]"
@@ -217,7 +223,7 @@ python benchmarks/bench_decomposition.py
 
 ## 参考
 
-更完整的模型边界与验证方法见 [技术验证说明](docs/validation.zh-CN.md)。
+更完整的模型边界与验证方法见 [技术验证说明](https://github.com/yaoniming3k/photonic-mzi/blob/main/docs/validation.zh-CN.md)。
 
 - Reck et al., *Experimental realization of any discrete unitary operator*, PRL 73, 58 (1994)
 - Clements et al., *Optimal design for universal multiport interferometers*, Optica 3, 1460 (2016)
@@ -225,4 +231,4 @@ python benchmarks/bench_decomposition.py
 
 ## License
 
-[MIT](LICENSE)
+[MIT](https://github.com/yaoniming3k/photonic-mzi/blob/main/LICENSE)

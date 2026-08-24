@@ -47,6 +47,18 @@ CI 只跑 `ruff check`，不跑 `ruff format`。本项目的代码排版（矩�
 python tools/generate_docs_assets.py
 ```
 
+## 发布流程
+
+1. 把已经完成的变更从 `Unreleased` 移入新版本小节。
+2. 同步更新 `pyproject.toml` 和 `photonic_mzi.__version__` 中的版本号，然后运行
+   完整测试、lint、构建以及 `twine check --strict`。
+3. 将发布提交合并到 `main`，等待 CI 全部通过。
+4. 发布标签为 `v<版本号>` 的 GitHub Release。`Publish to PyPI` 工作流会核对标签
+   与包元数据，重新构建制品，并通过 PyPI Trusted Publishing 上传。
+
+GitHub 的 `pypi` environment 和 PyPI Trusted Publisher 必须始终只授权给
+`.github/workflows/release.yml`。PyPI 版本不可覆盖，已经发布的版本号不能复用。
+
 ## 几条本项目特有的约定
 
 **动画不能自己编数。** 屏幕上显示的光场必须来自 `photonic_mzi.processor` 的真实计算，

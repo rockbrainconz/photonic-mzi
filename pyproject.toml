@@ -34,7 +34,10 @@ dev = ["pytest>=7.0", "matplotlib>=3.6", "pillow>=9.0", "ruff>=0.4"]
 
 [project.urls]
 Homepage = "https://github.com/yaoniming3k/photonic-mzi"
+Documentation = "https://github.com/yaoniming3k/photonic-mzi#readme"
+Repository = "https://github.com/yaoniming3k/photonic-mzi"
 Issues = "https://github.com/yaoniming3k/photonic-mzi/issues"
+Changelog = "https://github.com/yaoniming3k/photonic-mzi/blob/main/CHANGELOG.md"
 
 [project.scripts]
 photonic-mzi = "photonic_mzi.__main__:main"

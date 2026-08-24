@@ -7,6 +7,11 @@ and [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-08-24
+
+Initial release with MZI mesh decomposition, optical propagation, simplified
+non-idealities, and a bilingual teaching animation.
+
 ### Fixed
 
 - Dynamic phase jitter is sampled independently for every input in a batch.
@@ -36,11 +41,9 @@ and [Semantic Versioning](https://semver.org/).
 - Corrected path terminology to mode participation and documented the compatibility API.
 - Clarified SVD non-uniqueness, reflections in orthogonal transforms, coherent-source
   requirements, and disjoint-mode parallelism.
-
-## [1.0.0] - 2026-08-23
-
-Initial release with MZI mesh decomposition, optical propagation, simplified
-non-idealities, and a bilingual teaching animation.
+- Added a PyPI Trusted Publishing workflow with release-tag/version validation and
+  isolated build and publish jobs.
+- Made README links, images, and installation instructions render correctly on PyPI.
 
 ### Core implementation
 

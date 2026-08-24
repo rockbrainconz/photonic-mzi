@@ -2,13 +2,14 @@
 
 # photonic-mzi
 
-[English](README.md) | [简体中文](README.zh-CN.md)
+[English](https://github.com/yaoniming3k/photonic-mzi/blob/main/README.md) | [简体中文](https://github.com/yaoniming3k/photonic-mzi/blob/main/README.zh-CN.md)
 
 **An electrical-circuit-level feasibility demonstration of photonic matrix multiply-accumulate — compile any real matrix into MZI meshes and execute the linear transform through optical propagation**
 
 [![CI](https://github.com/yaoniming3k/photonic-mzi/actions/workflows/ci.yml/badge.svg)](https://github.com/yaoniming3k/photonic-mzi/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/photonic-mzi.svg)](https://pypi.org/project/photonic-mzi/)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/yaoniming3k/photonic-mzi/blob/main/LICENSE)
 
 The project asks one central question: **can a photonic processor execute matrix
 multiply-accumulate?** It uses SVD, unitary transforms, MZI interference meshes,
@@ -45,7 +46,7 @@ energy, latency, precision, scale, or manufacturability of a physical chip.
 ## Animation
 
 <div align="center">
-<img src="docs/images/demo.gif" alt="Bilingual MZI mesh photonic-computing animation" width="100%">
+<img src="https://raw.githubusercontent.com/yaoniming3k/photonic-mzi/main/docs/images/demo.gif" alt="Bilingual MZI mesh photonic-computing animation" width="100%">
 </div>
 
 The **left panel shows the executing code** with the active line highlighted. The
@@ -53,7 +54,7 @@ The **left panel shows the executing code** with the active line highlighted. Th
 phase (red at 0 degrees, cyan at 180 degrees), while bar height encodes amplitude.
 
 ```bash
-pip install ".[viz]"
+python -m pip install "photonic-mzi[viz]"
 python -m photonic_mzi
 ```
 
@@ -80,12 +81,12 @@ The animation has nine stages:
 
 <table>
 <tr>
-<td width="50%"><img src="docs/images/stage2-compile.png" alt="Compilation stage"><br><sub><b>Stage 2:</b> matrix elimination and MZI parameter programming</sub></td>
-<td width="50%"><img src="docs/images/stage4-interference.png" alt="Interference stage"><br><sub><b>Stage 4:</b> interference and energy conservation in one MZI</sub></td>
+<td width="50%"><img src="https://raw.githubusercontent.com/yaoniming3k/photonic-mzi/main/docs/images/stage2-compile.png" alt="Compilation stage"><br><sub><b>Stage 2:</b> matrix elimination and MZI parameter programming</sub></td>
+<td width="50%"><img src="https://raw.githubusercontent.com/yaoniming3k/photonic-mzi/main/docs/images/stage4-interference.png" alt="Interference stage"><br><sub><b>Stage 4:</b> interference and energy conservation in one MZI</sub></td>
 </tr>
 <tr>
-<td width="50%"><img src="docs/images/stage1-svd.png" alt="SVD stage"><br><sub><b>Stage 1:</b> M = U · Sigma · V^T</sub></td>
-<td width="50%"><img src="docs/images/stage8-noise.png" alt="Non-ideality stage"><br><sub><b>Stage 8:</b> NumPy, ideal photonic, and simplified non-ideal results</sub></td>
+<td width="50%"><img src="https://raw.githubusercontent.com/yaoniming3k/photonic-mzi/main/docs/images/stage1-svd.png" alt="SVD stage"><br><sub><b>Stage 1:</b> M = U · Sigma · V^T</sub></td>
+<td width="50%"><img src="https://raw.githubusercontent.com/yaoniming3k/photonic-mzi/main/docs/images/stage8-noise.png" alt="Non-ideality stage"><br><sub><b>Stage 8:</b> NumPy, ideal photonic, and simplified non-ideal results</sub></td>
 </tr>
 </table>
 
@@ -94,12 +95,17 @@ The animation has nine stages:
 ## Installation
 
 ```bash
-pip install ".[viz]"
+python -m pip install "photonic-mzi[viz]"
 ```
 
-For the compute kernel without the animation, use `pip install .` (NumPy only).
-Editable installs require **pip 21.3 or later** because this is a `pyproject.toml`-only
-package using PEP 660:
+For the NumPy-only compute kernel without the animation:
+
+```bash
+python -m pip install photonic-mzi
+```
+
+To develop from a source checkout, editable installs require **pip 21.3 or later**
+because this is a `pyproject.toml`-only package using PEP 660:
 
 ```bash
 python -m pip install --upgrade pip && pip install -e ".[dev]"
@@ -187,7 +193,7 @@ noise semantics, detection boundaries, calibration boundaries, and input validat
 - Forward propagation still loops over MZIs in Python; devices in one mesh layer could be vectorized.
 - Input modulators, laser power, DAC/ADC, system energy and latency, wavelength dependence, polarization, nonlinearities, and device crosstalk are not modeled.
 
-See [Model and validation notes](docs/validation.md) for the full scope.
+See [Model and validation notes](https://github.com/yaoniming3k/photonic-mzi/blob/main/docs/validation.md) for the full scope.
 
 ## References
 
@@ -197,4 +203,4 @@ See [Model and validation notes](docs/validation.md) for the full scope.
 
 ## License
 
-[MIT](LICENSE)
+[MIT](https://github.com/yaoniming3k/photonic-mzi/blob/main/LICENSE)
