@@ -31,7 +31,7 @@ Animation / 动画 (requires ``pip install "photonic-mzi[viz]"``)::
 from .mesh import MZI, decompose_unitary, mzi_transfer_matrix, recompose_unitary
 from .processor import NoiseModel, PhotonicMatrixProcessor
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 
 __all__ = [
     "MZI",

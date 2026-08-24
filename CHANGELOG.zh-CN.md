@@ -7,6 +7,12 @@
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-08-24
+
+### 修复
+
+- 转义强度表达式中的竖线，使读出方式对照表在 PyPI 和 GitHub 上完整显示。
+
 ## [1.0.0] - 2026-08-24
 
 首个版本：实现 MZI 网格分解、传播、非理想性模型与双语教学动画。
@@ -74,4 +80,6 @@
 - 前向传播仍是逐台 MZI 的 Python 循环，同一列尚未向量化。
 - 未建模波长相关性、偏振、非线性与器件间串扰。
 
+[Unreleased]: https://github.com/yaoniming3k/photonic-mzi/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/yaoniming3k/photonic-mzi/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/yaoniming3k/photonic-mzi/releases/tag/v1.0.0

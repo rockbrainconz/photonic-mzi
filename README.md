@@ -157,7 +157,7 @@ The two readout methods represent different detection schemes:
 | Method | Physical meaning |
 |---|---|
 | `read_coherent(x)` | Coherent or homodyne detection with a local oscillator; preserves the signed real component |
-| `read_intensity(x)` | Square-law direct detection; returns calibrated `gain²·|E|²` and loses sign information |
+| `read_intensity(x)` | Square-law direct detection; returns calibrated `gain²·\|E\|²` and loses sign information |
 
 ## Examples
 

@@ -7,6 +7,13 @@ and [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-08-24
+
+### Fixed
+
+- Escaped the intensity-expression separators so the readout comparison table renders
+  completely on PyPI and GitHub.
+
 ## [1.0.0] - 2026-08-24
 
 Initial release with MZI mesh decomposition, optical propagation, simplified
@@ -78,4 +85,6 @@ non-idealities, and a bilingual teaching animation.
 - Forward propagation still loops over MZIs in Python.
 - Wavelength dependence, polarization, nonlinearities, and device crosstalk are not modeled.
 
+[Unreleased]: https://github.com/yaoniming3k/photonic-mzi/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/yaoniming3k/photonic-mzi/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/yaoniming3k/photonic-mzi/releases/tag/v1.0.0
