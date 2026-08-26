@@ -4,9 +4,10 @@ Experimental incoherent-sunlight matrix multiply-accumulate model.
 实验性非相干日光矩阵乘加模型。
 
 This module deliberately does not reuse the coherent MZI field model.  It propagates
-non-negative optical powers through a dual-rail intensity crossbar:
+non-negative optical powers through a passive, dual-rail intensity crossbar:
 
-    sunlight -> input intensity -> non-negative weight transmission -> power sum
+    sunlight -> input intensity -> passive fan-out -> non-negative transmission
+             -> power sum
 
 Signed inputs and weights use positive/negative rails.  A reference photodiode removes
 only common-mode irradiance variation; it cannot remove spatial, spectral, or detector
@@ -93,7 +94,8 @@ class SolarPowerReadout:
     ``optical_powers()`` returns this structure before detector noise; ``detect()``
     returns the same structure after photon counting and read noise.  Keeping the
     encoding scale with the measurement makes hardware-like external readout decoding
-    explicit and testable.
+    explicit and testable.  The processor separately knows the fixed passive fan-out
+    fraction used by the compiled optical core.
     """
 
     positive: np.ndarray
@@ -111,11 +113,22 @@ class IncoherentSolarProcessor:
 
     Positive and negative output powers are accumulated separately and differenced at
     readout.  Optional ``bias`` is implemented as an additional constant optical input.
-    This is an analog intensity-crossbar model, not an MZI or coherent-field model.
+    Every input rail is uniformly fanned out across the output rows, so the summed ideal
+    pre-detection output power cannot exceed the configured passive fan-out efficiency.
+    Relative illumination/detector mismatch is reported against the reference and can
+    perturb that normalized bound. This is an analog intensity-crossbar model, not an
+    MZI or coherent-field model.
+
+    ``input_full_scale=None`` uses per-vector automatic gain control (AGC), which is
+    convenient for algebra tests but requires an externally known scale for every
+    exposure.  Set a positive fixed full scale for hardware-like photon and dynamic-
+    range studies; inputs outside that range are rejected instead of silently clipped.
     """
 
     def __init__(self, M: np.ndarray, bias: np.ndarray | None = None,
-                 noise: SolarNoiseModel | None = None, seed: int | None = None):
+                 noise: SolarNoiseModel | None = None, seed: int | None = None, *,
+                 fanout_efficiency: float = 1.0,
+                 input_full_scale: float | None = None):
         raw_M = np.asarray(M)
         if np.iscomplexobj(raw_M) and np.any(np.imag(raw_M) != 0):
             raise ValueError("M must be real / M 必须是实矩阵")
@@ -129,6 +142,19 @@ class IncoherentSolarProcessor:
         self.n_out, self.n_in = M.shape
         self.noise = noise or SolarNoiseModel()
         self.rng = np.random.default_rng(seed)
+
+        if not np.isfinite(fanout_efficiency) or not 0 < fanout_efficiency <= 1:
+            raise ValueError(
+                "fanout_efficiency must be in (0, 1] / 扇出效率必须在 (0, 1] 内")
+        self.fanout_efficiency = float(fanout_efficiency)
+        self.fanout_fraction = self.fanout_efficiency / self.n_out
+
+        if input_full_scale is not None:
+            if not np.isfinite(input_full_scale) or input_full_scale <= 0:
+                raise ValueError(
+                    "input_full_scale must be finite and positive / 输入满量程必须是有限正数")
+            input_full_scale = float(input_full_scale)
+        self.input_full_scale = input_full_scale
 
         if bias is None:
             self.bias = None
@@ -144,6 +170,12 @@ class IncoherentSolarProcessor:
                     f"bias 形状必须为 ({self.n_out},)")
             self.bias = bias
             self.A = np.column_stack([M, bias])
+
+        if self.bias is not None and self.input_full_scale is not None:
+            if self.input_full_scale < 1.0:
+                raise ValueError(
+                    "input_full_scale must be at least 1 when bias is present / "
+                    "含偏置时输入满量程至少为 1")
 
         self.n_optical_inputs = self.A.shape[1]
         self.weight_scale = float(np.max(np.abs(self.A))) if np.any(self.A) else 1.0
@@ -182,8 +214,15 @@ class IncoherentSolarProcessor:
 
         if self.bias is not None:
             X = np.vstack([X, np.ones((1, X.shape[1]))])
-        scale = np.max(np.abs(X), axis=0)
-        scale = np.where(scale > 0, scale, 1.0)
+        if self.input_full_scale is None:
+            scale = np.max(np.abs(X), axis=0)
+            scale = np.where(scale > 0, scale, 1.0)
+        else:
+            if np.any(np.abs(X) > self.input_full_scale):
+                raise ValueError(
+                    f"x exceeds fixed input_full_scale={self.input_full_scale:g} / "
+                    "x 超出固定输入满量程")
+            scale = np.full(X.shape[1], self.input_full_scale)
         return X / scale[None, :], scale, squeeze
 
     def _powers_2d(self, x: np.ndarray, ideal: bool) -> tuple[SolarPowerReadout, bool]:
@@ -193,25 +232,26 @@ class IncoherentSolarProcessor:
         if ideal:
             channel_gain = np.ones(self.n_optical_inputs)
             weight_gain = np.ones_like(self.A)
-            arm_gain = np.ones((self.n_out, 2))
             irradiance = np.full(X.shape[1], self.noise.irradiance)
         else:
             channel_gain = self._channel_gain
             weight_gain = self._weight_gain
-            arm_gain = self._arm_gain
             fluctuation = _relative_gain(
                 self.rng, self.noise.common_fluctuation, X.shape[1])
             irradiance = self.noise.irradiance * fluctuation
 
         Xp = Xp * channel_gain[:, None]
         Xn = Xn * channel_gain[:, None]
-        Wp = self.weight_positive * weight_gain
-        Wn = self.weight_negative * weight_gain
+        # A multiplicative setting error cannot turn an attenuator into optical gain.
+        Wp = np.clip(self.weight_positive * weight_gain, 0.0, 1.0)
+        Wn = np.clip(self.weight_negative * weight_gain, 0.0, 1.0)
 
-        positive = irradiance[None, :] * (Wp @ Xp + Wn @ Xn)
-        negative = irradiance[None, :] * (Wp @ Xn + Wn @ Xp)
-        positive *= arm_gain[:, [0]]
-        negative *= arm_gain[:, [1]]
+        # Uniform passive fan-out sends only eta/n_out of each input-rail power to
+        # each row.  Weight masks can attenuate a branch but never create power.
+        positive = (self.fanout_fraction * irradiance[None, :] *
+                    (Wp @ Xp + Wn @ Xn))
+        negative = (self.fanout_fraction * irradiance[None, :] *
+                    (Wp @ Xn + Wn @ Xp))
         reference = irradiance.copy()
         return SolarPowerReadout(positive, negative, reference, input_scale), squeeze
 
@@ -235,23 +275,39 @@ class IncoherentSolarProcessor:
         if not isinstance(readout, SolarPowerReadout):
             raise TypeError("readout must be SolarPowerReadout / 读出类型不正确")
 
-        positive = np.asarray(readout.positive, dtype=float)
-        negative = np.asarray(readout.negative, dtype=float)
+        raw_positive = np.asarray(readout.positive)
+        raw_negative = np.asarray(readout.negative)
+        raw_reference = np.asarray(readout.reference)
+        raw_input_scale = np.asarray(readout.input_scale)
+        named_raw = {
+            "positive": raw_positive,
+            "negative": raw_negative,
+            "reference": raw_reference,
+            "input_scale": raw_input_scale,
+        }
+        for name, raw in named_raw.items():
+            if np.iscomplexobj(raw) and np.any(np.imag(raw) != 0):
+                raise ValueError(f"{name} must be real / 必须是实数")
+
+        positive = np.asarray(np.real(raw_positive), dtype=float)
+        negative = np.asarray(np.real(raw_negative), dtype=float)
+        if positive.ndim not in (1, 2) or negative.ndim not in (1, 2):
+            raise ValueError("power rails must be 1-D or 2-D / 功率轨必须是一维或二维")
+        if positive.ndim != negative.ndim:
+            raise ValueError("power rails must have matching dimensions / 功率轨维度不匹配")
         if positive.ndim == 1:
             squeeze = True
             positive = positive[:, None]
             negative = negative[:, None]
         elif positive.ndim == 2:
             squeeze = False
-        else:
-            raise ValueError("power rails must be 1-D or 2-D / 功率轨必须是一维或二维")
         if positive.shape != negative.shape or positive.shape[0] != self.n_out:
             raise ValueError(
                 f"power rails must share shape ({self.n_out}, B) / 功率轨形状不匹配")
 
         batch = positive.shape[1]
-        reference = np.asarray(readout.reference, dtype=float)
-        input_scale = np.asarray(readout.input_scale, dtype=float)
+        reference = np.asarray(np.real(raw_reference), dtype=float)
+        input_scale = np.asarray(np.real(raw_input_scale), dtype=float)
         if reference.ndim == 0:
             reference = reference.reshape(1)
         if input_scale.ndim == 0:
@@ -282,7 +338,7 @@ class IncoherentSolarProcessor:
         return observed
 
     def detect(self, powers: SolarPowerReadout, ideal: bool = True) -> SolarPowerReadout:
-        """Apply photon-counting and detector/read-reference noise.
+        """Apply detector-arm gain, photon-counting, and read/reference noise.
 
         This is the explicit boundary between passive optical power propagation and
         photodetection.  Additive read noise is allowed to make a background-subtracted
@@ -294,9 +350,11 @@ class IncoherentSolarProcessor:
                 powers.positive.copy(), powers.negative.copy(),
                 powers.reference.copy(), powers.input_scale.copy())
         else:
+            positive = powers.positive * self._arm_gain[:, [0]]
+            negative = powers.negative * self._arm_gain[:, [1]]
             observed = SolarPowerReadout(
-                self._detect_channel(powers.positive, self.noise.detector_noise),
-                self._detect_channel(powers.negative, self.noise.detector_noise),
+                self._detect_channel(positive, self.noise.detector_noise),
+                self._detect_channel(negative, self.noise.detector_noise),
                 self._detect_channel(powers.reference, self.noise.reference_noise),
                 powers.input_scale.copy(),
             )
@@ -311,7 +369,7 @@ class IncoherentSolarProcessor:
         """
         readout, squeeze = self._coerce_readout(readout, physical=False)
         decoded = ((readout.positive - readout.negative) * self.weight_scale *
-                   readout.input_scale[None, :])
+                   readout.input_scale[None, :] / self.fanout_fraction)
         if normalize:
             if np.any(readout.reference <= 0):
                 raise RuntimeError(
@@ -343,6 +401,12 @@ class IncoherentSolarProcessor:
             f"{' (includes bias / 含偏置)' if self.bias is not None else ''}",
             "Dual rail / 正负双轨    : implemented / 已实现",
             f"Weight scale / 权重标度 : {self.weight_scale:.6g}",
+            f"Fan-out / 被动扇出      : {self.n_out}-way uniform, "
+            f"eta={self.fanout_efficiency:.6g}, branch={self.fanout_fraction:.6g}",
+            "Input scale / 输入标度  : " + (
+                "per-vector AGC / 逐向量自动增益"
+                if self.input_full_scale is None else
+                f"fixed full scale {self.input_full_scale:.6g} / 固定满量程"),
             f"Irradiance / 日光标度   : {self.noise.irradiance:.6g}",
             "Reference / 参考归一化  : simultaneous common-mode only / 仅同时公共模",
             "Spectrum / 光谱模型     : lumped effective error, not wavelength resolved / "
@@ -353,4 +417,4 @@ class IncoherentSolarProcessor:
 
     def __repr__(self) -> str:
         return (f"IncoherentSolarProcessor({self.n_out}x{self.n_in}, "
-                f"bias={self.bias is not None})")
+                f"bias={self.bias is not None}, fanout={self.fanout_efficiency:g})")

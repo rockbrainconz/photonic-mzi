@@ -19,7 +19,12 @@ bias = np.array([0.05, -0.10, 0.20])
 x = np.array([0.7, -0.4, 0.2, 0.9])
 truth = M @ x + bias
 
-ideal = IncoherentSolarProcessor(M, bias=bias)
+ideal = IncoherentSolarProcessor(
+    M,
+    bias=bias,
+    fanout_efficiency=0.8,
+    input_full_scale=1.0,
+)
 print(ideal.report())
 print("\nCPU / 电域真值       :", np.round(truth, 6))
 print("Ideal solar / 理想日光:", np.round(ideal.read(x), 6))
@@ -34,7 +39,14 @@ noise = SolarNoiseModel(
     detector_noise=1e-4,
     reference_noise=1e-4,
 )
-solar = IncoherentSolarProcessor(M, bias=bias, noise=noise, seed=7)
+solar = IncoherentSolarProcessor(
+    M,
+    bias=bias,
+    noise=noise,
+    seed=7,
+    fanout_efficiency=0.8,
+    input_full_scale=1.0,
+)
 
 # Every batch column is a simultaneous exposure with independently fluctuating sunlight.
 X = np.repeat(x[:, None], 256, axis=1)
@@ -53,3 +65,4 @@ ideal_powers = ideal.optical_powers(x)
 print("Positive rail / 正轨功率:", np.round(ideal_powers.positive, 6))
 print("Negative rail / 负轨功率:", np.round(ideal_powers.negative, 6))
 print("Reference / 参考功率    :", round(ideal_powers.reference, 6))
+print("Fan-out branch / 扇出分支:", round(ideal.fanout_fraction, 6))

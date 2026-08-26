@@ -4,7 +4,11 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from photonic_mzi import IncoherentSolarProcessor, SolarNoiseModel
+from photonic_mzi import (
+    IncoherentSolarProcessor,
+    SolarNoiseModel,
+    SolarPowerReadout,
+)
 
 
 def test_signed_matrix_vector_is_exact_in_ideal_model():
@@ -40,9 +44,37 @@ def test_dual_rail_powers_are_nonnegative_and_difference_decodes():
     assert np.all(powers.positive >= 0)
     assert np.all(powers.negative >= 0)
     decoded = ((powers.positive - powers.negative) * solar.weight_scale *
-               powers.input_scale / powers.reference)
+               powers.input_scale / (powers.reference * solar.fanout_fraction))
     assert np.allclose(decoded, M @ x, atol=1e-12)
     assert np.allclose(solar.decode(solar.detect(powers)), M @ x, atol=1e-12)
+
+
+def test_uniform_fanout_conserves_total_input_rail_power():
+    M = np.ones((5, 2))
+    x = np.ones(2)
+    solar = IncoherentSolarProcessor(
+        M, fanout_efficiency=0.8, input_full_scale=1.0)
+    powers = solar.optical_powers(x)
+    output_power = np.sum(powers.positive) + np.sum(powers.negative)
+    available_input_power = 0.8 * np.sum(np.abs(x))
+    assert solar.fanout_fraction == pytest.approx(0.8 / 5)
+    assert output_power == pytest.approx(available_input_power)
+    assert np.allclose(solar.decode(powers), M @ x, atol=1e-12)
+
+
+def test_weight_setting_error_cannot_create_transmission_gain():
+    M = np.ones((6, 2))
+    x = np.ones(2)
+    solar = IncoherentSolarProcessor(
+        M,
+        noise=SolarNoiseModel(spectral_weight_error=2.0),
+        seed=2,
+        fanout_efficiency=0.7,
+        input_full_scale=1.0,
+    )
+    powers = solar.optical_powers(x, ideal=False)
+    output_power = np.sum(powers.positive) + np.sum(powers.negative)
+    assert output_power <= 0.7 * np.sum(np.abs(x)) + 1e-12
 
 
 def test_physical_transmissions_never_exceed_one():
@@ -52,6 +84,47 @@ def test_physical_transmissions_never_exceed_one():
     assert solar.weight_negative.min() >= 0
     assert solar.weight_positive.max() <= 1
     assert solar.weight_negative.max() <= 1
+
+
+def test_fixed_input_full_scale_preserves_dynamic_range_and_rejects_overflow():
+    solar = IncoherentSolarProcessor(
+        np.eye(1), input_full_scale=2.0)
+    small = solar.optical_powers(np.array([0.1]))
+    large = solar.optical_powers(np.array([1.0]))
+    assert small.input_scale == 2.0
+    assert large.input_scale == 2.0
+    assert small.positive[0] < large.positive[0]
+    assert np.allclose(solar.decode(small), [0.1], atol=1e-12)
+    assert np.allclose(solar.decode(large), [1.0], atol=1e-12)
+    with pytest.raises(ValueError, match="input_full_scale"):
+        solar.read(np.array([2.1]))
+
+
+def test_default_per_vector_agc_records_the_scale_explicitly():
+    solar = IncoherentSolarProcessor(np.eye(1))
+    small = solar.optical_powers(np.array([0.1]))
+    large = solar.optical_powers(np.array([1.0]))
+    assert small.input_scale == pytest.approx(0.1)
+    assert large.input_scale == pytest.approx(1.0)
+    assert small.positive[0] == pytest.approx(large.positive[0])
+
+
+@pytest.mark.parametrize("bad", [0.0, -1.0, 1.01, float("nan"), float("inf")])
+def test_fanout_efficiency_is_validated(bad):
+    with pytest.raises(ValueError, match="fanout_efficiency"):
+        IncoherentSolarProcessor(np.eye(1), fanout_efficiency=bad)
+
+
+@pytest.mark.parametrize("bad", [0.0, -1.0, float("nan"), float("inf")])
+def test_fixed_input_full_scale_is_validated(bad):
+    with pytest.raises(ValueError, match="input_full_scale"):
+        IncoherentSolarProcessor(np.eye(1), input_full_scale=bad)
+
+
+def test_bias_requires_fixed_full_scale_of_at_least_one():
+    with pytest.raises(ValueError, match="at least 1"):
+        IncoherentSolarProcessor(
+            np.eye(1), bias=np.zeros(1), input_full_scale=0.5)
 
 
 def test_reference_normalization_cancels_common_sunlight_fluctuation():
@@ -93,6 +166,21 @@ def test_spatial_and_spectral_errors_are_fixed_not_per_read_noise():
     assert not np.allclose(y1, M @ x)
 
 
+def test_differential_gain_belongs_to_detection_not_passive_optical_power():
+    M = np.array([[1.0, -0.5], [0.25, 2.0]])
+    x = np.array([0.3, -0.8])
+    solar = IncoherentSolarProcessor(
+        M, noise=SolarNoiseModel(differential_gain_error=0.5), seed=12)
+    ideal_powers = solar.optical_powers(x, ideal=True)
+    physical_powers = solar.optical_powers(x, ideal=False)
+    assert np.array_equal(physical_powers.positive, ideal_powers.positive)
+    assert np.array_equal(physical_powers.negative, ideal_powers.negative)
+
+    observed = solar.detect(physical_powers, ideal=False)
+    assert not np.array_equal(observed.positive, physical_powers.positive)
+    assert not np.array_equal(observed.negative, physical_powers.negative)
+
+
 def test_shot_noise_is_reproducible_with_seed():
     M = np.array([[1.0, 0.5], [-0.25, 1.5]])
     x = np.array([0.4, -0.7])
@@ -131,7 +219,21 @@ def test_zero_matrix_and_zero_input_are_well_defined():
     assert solar.weight_scale == 1.0
 
 
+def test_external_readout_rejects_mismatched_or_complex_rails_cleanly():
+    solar = IncoherentSolarProcessor(np.eye(1))
+    scalar_negative = SolarPowerReadout(np.ones(1), 0.0, 1.0, 1.0)
+    with pytest.raises(ValueError, match="1-D or 2-D"):
+        solar.decode(scalar_negative)
+
+    complex_positive = SolarPowerReadout(
+        np.array([1.0 + 1.0j]), np.zeros(1), 1.0, 1.0)
+    with pytest.raises(ValueError, match="positive must be real"):
+        solar.decode(complex_positive)
+
+
 def test_report_states_model_boundary():
     report = IncoherentSolarProcessor(np.eye(2)).report()
     assert "incoherent sunlight" in report
     assert "not wavelength resolved" in report
+    assert "2-way uniform" in report
+    assert "per-vector AGC" in report

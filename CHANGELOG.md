@@ -13,12 +13,24 @@ and [Semantic Versioning](https://semver.org/).
   dual-rail intensity MAC with simultaneous reference normalization.
 - Added separate spatial, wavelength-integrated weight, differential-arm, photon-count,
   detector, and reference non-idealities for the sunlight experiment.
-- Added a bilingual model-boundary document, runnable example, and 18 focused tests.
+- Added a bilingual model-boundary document, runnable example, and 34 focused tests.
 - Documented the full signed derivation, common-mode normalization theorem, broadband
   failure conditions, passive/programmed hardware variants, electrical boundary,
   calibration sequence, and experimental acceptance criteria.
 - Split the sunlight API into explicit optical-power, detection, and decoding stages so
   measured hardware powers can reuse the same decoder.
+- Added an explicit uniform passive fan-out efficiency and decoder scale restoration,
+  with a tested total-power conservation bound instead of implicit full-power copying.
+- Added fixed-input-full-scale hardware mode alongside the explicitly reported
+  per-vector AGC mode, including overflow validation.
+- Added symmetric real/shape validation for externally supplied dual-rail readouts.
+- Moved fixed differential detector-arm gain from passive `optical_powers()` into the
+  explicit `detect()` boundary.
+- Extended the theory with passive realizability, mutual-coherence conditions,
+  reference-ratio bias, a spectral non-separability metric, physical photon-count
+  equations, and quantitative experimental acceptance metrics.
+- Corrected the publication metadata for the 2025 quantum-limited stochastic optical
+  neural-network reference and added primary coherence/fan-out references.
 - Made the branch-root English and Chinese READMEs sunlight-specific; links point back
   to the unchanged coherent-MZI READMEs on `main`.
 

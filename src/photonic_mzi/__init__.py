@@ -27,6 +27,19 @@ Quick start / 快速上手::
 Animation / 动画 (requires ``pip install "photonic-mzi[viz]"``)::
 
     python -m photonic_mzi
+
+Experimental incoherent-sunlight backend / 实验性非相干日光后端::
+
+    from photonic_mzi import IncoherentSolarProcessor
+
+    solar = IncoherentSolarProcessor(
+        M, fanout_efficiency=0.8, input_full_scale=1.0)
+    y = solar.read(x)
+
+This backend uses signed intensity rails, passive uniform fan-out, direct detection,
+and simultaneous reference normalization. It is separate from the coherent MZI field
+model. / 此后端使用强度双轨、被动均匀扇出、直接探测与同时参考归一化，不属于相干
+MZI 光场模型。
 """
 from .mesh import MZI, decompose_unitary, mzi_transfer_matrix, recompose_unitary
 from .processor import NoiseModel, PhotonicMatrixProcessor

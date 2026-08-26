@@ -17,7 +17,7 @@ y = Mx + b
 物理路径和主线有意保持独立：
 
 ```text
-日光 → 匀光/滤光 → 输入强度双轨 → 非负权重透过率
+日光 → 匀光/滤光 → 输入强度双轨 → 被动均匀扇出 → 非负权重透过率
      → 探测器功率汇聚 → 正负差分 → 参考归一化 → y
 ```
 
@@ -55,15 +55,17 @@ W = W+ - W-
 u = u+ - u-
 ```
 
-双轨探测功率为：
+对总效率为 `eta_f` 的 `m` 路均匀被动扇出，每行分支比例
+`f=eta_f/m`。双轨探测功率为：
 
 ```text
-P+ = C(t) [W+u+ + W-u-]
-P- = C(t) [W+u- + W-u+]
+P+ = C(t) f [W+u+ + W-u-]
+P- = C(t) f [W+u- + W-u+]
 ```
 
-因此 `P+-P-=C(t)Wu`。若同时参考探测器测得 `Pref=C(t)`，并补回输入与权重的
-已知编码标度，即可恢复 `Mx+b`。
+因此 `P+-P-=C(t)fWu`。若同时参考探测器测得 `Pref=C(t)`，并补回输入、权重和
+已知的 `1/f` 标度，即可恢复 `Mx+b`。数值标度可以恢复，但分光后损失的光子不能
+恢复，实际散粒噪声必须按衰减后的探测功率计算。
 
 这个归一化只能消除所有通道共享的标量变化，不能消除局部阴影、光谱失配、通道
 不均匀、正负探测臂失配或独立探测噪声。
@@ -78,7 +80,14 @@ P- = C(t) [W+u- + W-u+]
 ```python
 from photonic_mzi import IncoherentSolarProcessor, SolarNoiseModel
 
-solar = IncoherentSolarProcessor(M, bias=b, noise=SolarNoiseModel(...), seed=7)
+solar = IncoherentSolarProcessor(
+    M,
+    bias=b,
+    fanout_efficiency=0.8,
+    input_full_scale=1.0,
+    noise=SolarNoiseModel(...),
+    seed=7,
+)
 
 powers = solar.optical_powers(x, ideal=False)  # P+、P-、Pref：探测前功率
 observed = solar.detect(powers, ideal=False)   # 光子计数与探测器噪声
@@ -92,6 +101,8 @@ y = solar.read(x, ideal=False, normalize=True)
 ```
 
 真实硬件测得的三组功率可以封装为 `SolarPowerReadout`，交给同一个 `decode()` 解码。
+`input_full_scale` 选择固定硬件量程并拒绝超量程输入；设为 `None` 会启用显式逐向量
+AGC，其标度随读出传递，不能当成免费小信号光学增益。
 
 实现文件：[src/photonic_mzi/solar.py](src/photonic_mzi/solar.py)
 
@@ -105,6 +116,10 @@ y = solar.read(x, ideal=False, normalize=True)
 - 正负探测器与参考探测器的加性读出噪声。
 
 这些参数用于验证误差语义和敏感度，不是完整的户外器件模型。
+
+编译后的光学核心还执行显式均匀被动扇出守恒：全部输出轨功率之和不会超过
+`fanout_efficiency` 乘以可用编码输入轨功率。互相干、逐波长时变、太阳热光过剩
+噪声和绝对探测器单位仍等待实测器件模型。
 
 ## 是否用电
 
@@ -127,8 +142,8 @@ python -m pytest -m "not slow" -q
 
 当前验证状态：
 
-- 日光专项：18 项通过；
-- 快速套件：146 项通过，5 项既有动画慢测跳过；
+- 日光专项：34 项通过；
+- 快速套件：162 项通过，5 项既有动画慢测跳过；
 - Ruff：全部通过。
 
 ## 文档导航
@@ -144,6 +159,7 @@ python -m pytest -m "not slow" -q
 - 不把日光塞进相干 MZI 传播模型；
 - 不制作日光动画或 GIF；
 - 不在缺少真实器件光谱数据时选择滤光片；
+- 不假设“日光”二字自动保证互相干交叉项为零，台架必须测量残余条纹；
 - 不声称零耗电、户外有效 bit、TOPS 或能效优势；
 - 不把理想浮点一致性当作硬件已经可行的证据。
 

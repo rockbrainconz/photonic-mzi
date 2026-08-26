@@ -93,7 +93,8 @@ pytest
 python benchmarks/bench_decomposition.py
 ```
 
-The fast suite contains 128 tests and the full suite contains 133. Coverage includes:
+On this branch the fast suite contains 162 tests and the full suite contains 167.
+Coverage includes:
 
 - single-MZI unitarity, swap behavior, and degenerate elimination limits;
 - random dense, structured, rank-deficient, rectangular, and batched matrices;
