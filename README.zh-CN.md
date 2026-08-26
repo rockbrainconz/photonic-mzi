@@ -1,249 +1,151 @@
-> [!IMPORTANT]
-> 当前是实验性 `experiment/solar-incoherent` 分支。日光强度处理器与主线相干 MZI
-> 处理器使用不同的物理原理，请先阅读[日光分支介绍](README.solar.zh-CN.md)。
+# photonic-mzi：日光矩阵乘加实验分支
 
-<div align="center">
+[English](README.md) | [简体中文](README.zh-CN.md) |
+[主线相干 MZI 分支](https://github.com/yaoniming3k/photonic-mzi/tree/main)
 
-# photonic-mzi
+> **分支状态：实验性。** 这是 `experiment/solar-incoherent` 的默认 README。
+> 该分支研究非相干日光强度计算，不是给 `main` 上的相干 MZI 处理器更换光源。
 
-[English](https://github.com/yaoniming3k/photonic-mzi/blob/main/README.md) | [简体中文](https://github.com/yaoniming3k/photonic-mzi/blob/main/README.zh-CN.md)
+## 这个分支在研究什么
 
-**验证光处理器执行矩阵乘加的电路级可行性 —— 把任意实矩阵编译成 MZI 网格，并让光学传播完成线性变换**
+目标是执行实数矩阵乘加：
 
-[![CI](https://github.com/yaoniming3k/photonic-mzi/actions/workflows/ci.yml/badge.svg)](https://github.com/yaoniming3k/photonic-mzi/actions/workflows/ci.yml)
-[![PyPI](https://img.shields.io/pypi/v/photonic-mzi.svg)](https://pypi.org/project/photonic-mzi/)
-[![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/yaoniming3k/photonic-mzi/blob/main/LICENSE)
-
-本项目的核心目标是验证一件事：**光处理器能否执行矩阵乘加**。它用 SVD、酉变换、
-MZI 干涉网格和光学衰减器，把 `y = Mx`（批量时为 `Y = MX`）建立成一条可运行、
-可逐器件检查、可与 NumPy 对照的完整计算链，并附逐行代码与逐器件光传播教学动画。
-
-```
-输入 [x] ──▶ [ Vᵀ 酉变换 MZI 网格 ] ──▶ [ Σ 光衰减器 ] ──▶ [ U 酉变换 MZI 网格 ] ──▶ [y] 探测器
+```text
+y = Mx + b
 ```
 
-</div>
+物理路径和主线有意保持独立：
 
----
-
-## 核心验证
-
-矩阵乘加并不是在光路里逐条执行电子指令；每个输出元素所需的乘法与求和，被映射为
-复振幅编码、干涉叠加、通道缩放和相干读出。本项目验证四个环节能够闭合：
-
-1. **编译可行**：任意实矩阵可经 SVD 拆成两个正交变换和一组非负缩放，并编译为两张 MZI 网格与一列 VOA。
-2. **传播可行**：输入向量编码为相干光复振幅后，理想光场传播满足 `E = (M @ x) / gain`；批量输入满足同样关系。
-3. **读出可行**：带本振的相干探测恢复带符号输出，数值结果与 `M @ x` 在浮点误差内一致。
-4. **误差可评估**：静态相移偏置、动态相位抖动、插损、VOA 误差和等效读出噪声可分别注入并量化影响。
-
-因此，这里验证的是**数学映射、软件实现和简化线性光学电路模型内的可行性**。
-它不单独证明真实芯片已经达到某个能耗、延迟、精度、规模或量产指标。
-
----
-
-## 这个动画在讲什么
-
-<div align="center">
-<img src="https://raw.githubusercontent.com/yaoniming3k/photonic-mzi/main/docs/images/demo.gif" alt="MZI 网格光计算教学动画" width="100%">
-</div>
-
-屏幕**左边是正在执行的代码**（高亮当前行），**右边是这一行在光子芯片上物理发生了什么**。
-颜色统一编码光的相位（红 0°、青 180°），柱高是振幅 —— 所以「负数怎么用光表示」
-「这台干涉仪是相长还是相消」，看颜色就知道。
-
-```bash
-python -m pip install "photonic-mzi[viz]"
-python -m photonic_mzi
+```text
+日光 → 匀光/滤光 → 输入强度双轨 → 非负权重透过率
+     → 探测器功率汇聚 → 正负差分 → 参考归一化 → y
 ```
 
-| 键 | 作用 |
-|:--:|---|
-| `空格` | 暂停 / 继续 |
-| `←` `→` | **单步回退 / 前进**（暂停时最有用） |
-| `,` `.` | 跳到上一 / 下一阶段 |
-| `r` | 从头重播 |
+日光在这里是非相干功率载波。乘法由透过率完成，加法由探测器对光功率的空间汇聚完成。
+系统不传播可控复振幅，也不依赖 MZI 相位干涉。
 
-整个流程拆成 9 个阶段：
+## 和 `main` 的区别
 
-| 阶段 | 内容 |
-|---|---|
-| 0 核心问题 | 光处理器能否执行矩阵乘加 `y = M x` |
-| 1 SVD 分解 | `M = U · Σ · Vᵀ`，为什么任意实矩阵都存在「正交变换→缩放→正交变换」分解 |
-| 2 编译 MZI | 逐个元素消元，看 θ/φ 参数表怎么一行行填满、芯片上的 MZI 怎么一台台点亮 |
-| 3 光注入 | 输入向量怎么编码成复振幅（负数 = 相位差 π） |
-| 4 Vᵀ 网格 | 光波前逐列推进，每台 MZI 内部的 `a,b → a',b'` 干涉过程 + 能量守恒检查 |
-| 5 Σ 衰减 | 理想模型中有意设置的衰减级，奇异值的物理化身 |
-| 6 U 网格 | 同上 |
-| 7 探测输出 | 与 CPU 对答案，误差 `8.1e-16` |
-| 8 非理想性 | 加上静态相移偏置、独立动态抖动、插损和等效读出噪声后的敏感度 |
+| 项目 | 主线 `PhotonicMatrixProcessor` | 本分支 `IncoherentSolarProcessor` |
+|---|---|---|
+| 光学量 | 相干复光场 | 非负光功率 |
+| 典型光源 | 激光器 | 日光、LED 或太阳模拟器 |
+| 乘加机制 | MZI 干涉、酉变换、VOA | 强度透过率、空间扇出、探测器汇聚 |
+| 负数表示 | π 相位差 | 正负双轨 |
+| 读出 | 带本振的相干/零差探测 | 成对直接探测与差分 |
+| 光源波动 | 不适用 | 同时参考通道只能消除公共模波动 |
+| 主要类 | `PhotonicMatrixProcessor` | `IncoherentSolarProcessor` |
 
-<table>
-<tr>
-<td width="50%"><img src="https://raw.githubusercontent.com/yaoniming3k/photonic-mzi/main/docs/images/stage2-compile.png" alt="编译阶段"><br><sub><b>阶段 2</b>：矩阵消元 ↔ MZI 参数表同步填充</sub></td>
-<td width="50%"><img src="https://raw.githubusercontent.com/yaoniming3k/photonic-mzi/main/docs/images/stage4-interference.png" alt="干涉阶段"><br><sub><b>阶段 4</b>：单台 MZI 的干涉与能量守恒</sub></td>
-</tr>
-<tr>
-<td width="50%"><img src="https://raw.githubusercontent.com/yaoniming3k/photonic-mzi/main/docs/images/stage1-svd.png" alt="SVD 阶段"><br><sub><b>阶段 1</b>：M = U · Σ · Vᵀ</sub></td>
-<td width="50%"><img src="https://raw.githubusercontent.com/yaoniming3k/photonic-mzi/main/docs/images/stage8-noise.png" alt="非理想性阶段"><br><sub><b>阶段 8</b>：CPU / 理想光子 / 简化非理想模型三方对比</sub></td>
-</tr>
-</table>
+两套处理器共享“验证矩阵乘加”的上层目标，但没有共享传播方程或器件拓扑。原始 MZI
+项目说明仍保留在 [main 分支](https://github.com/yaoniming3k/photonic-mzi/blob/main/README.zh-CN.md)。
 
----
+## 理论核心
 
-## 安装
+把偏置并入矩阵和输入：
 
-```bash
-python -m pip install "photonic-mzi[viz]"
+```text
+A = [M  b]
+z = [x; 1]
 ```
 
-只用计算内核、不需要动画（仅依赖 NumPy）时：
+将归一化后的输入和权重拆成非负部分：
 
-```bash
-python -m pip install photonic-mzi
+```text
+W = W+ - W-
+u = u+ - u-
 ```
 
-从源码参与开发时，可编辑安装**需要 pip ≥ 21.3**；纯 `pyproject.toml`
-项目的可编辑安装依赖 PEP 660：
+双轨探测功率为：
 
-```bash
-python -m pip install --upgrade pip && pip install -e ".[dev]"
+```text
+P+ = C(t) [W+u+ + W-u-]
+P- = C(t) [W+u- + W-u+]
 ```
 
-也可以完全不安装，直接从源码目录跑 —— `examples/` 和 `pytest` 都自带了
-`src/` 的路径处理：
+因此 `P+-P-=C(t)Wu`。若同时参考探测器测得 `Pref=C(t)`，并补回输入与权重的
+已知编码标度，即可恢复 `Mx+b`。
 
-```bash
-PYTHONPATH=src python -m photonic_mzi
-```
+这个归一化只能消除所有通道共享的标量变化，不能消除局部阴影、光谱失配、通道
+不均匀、正负探测臂失配或独立探测噪声。
 
-## 用法
+完整推导见
+[《非相干日光矩阵乘加：理论与光处理器实现》](docs/solar-processor-design.zh-CN.md)。
+
+## 软件实现
+
+处理链按物理边界拆成三段：
 
 ```python
-import numpy as np
-from photonic_mzi import PhotonicMatrixProcessor
+from photonic_mzi import IncoherentSolarProcessor, SolarNoiseModel
 
-M = np.random.randn(8, 5)          # 非方阵也可以
-opu = PhotonicMatrixProcessor(M, seed=42)
+solar = IncoherentSolarProcessor(M, bias=b, noise=SolarNoiseModel(...), seed=7)
 
-x = np.random.randn(5)
-opu.read_coherent(x)               # 与 M @ x 一致到 ~1e-15
-opu.read_coherent(np.random.randn(5, 256))   # 批量输入
-
-E = opu.optical_field(x)           # 探测前物理复光场；理想时为 (M @ x) / opu.gain
-
-print(opu.report())                # MZI 数、网格深度、损耗上界代理、回环误差
+powers = solar.optical_powers(x, ideal=False)  # P+、P-、Pref：探测前功率
+observed = solar.detect(powers, ideal=False)   # 光子计数与探测器噪声
+y = solar.decode(observed, normalize=True)    # 差分、参考归一化、标度恢复
 ```
 
-加上简化非理想性，并演示「静态相移控制偏置能表征、独立动态抖动不能靠静态校准消除」：
+也可以使用组合接口：
 
 ```python
-from photonic_mzi import NoiseModel
-
-nz = NoiseModel(
-    fab_theta=0.02,        # 固定相移控制偏置；理想表征模型可校准
-    drift_theta=0.005,     # 每个输入样本独立的相位抖动（i.i.d. 简化）
-    mzi_loss_db=0.2,       # 每台 MZI 插损
-    voa_rel_err=0.01,
-    detector_snr_db=40,    # 探测后等效相对 AWGN，不是散粒/TIA 细节模型
-)
-opu = PhotonicMatrixProcessor(M, noise=nz, seed=7)
-
-opu.read_coherent(x, ideal=False)  # 未校准
-opu.calibrate()                    # 出厂表征，抵消静态误差
-opu.read_coherent(x, ideal=False)  # 校准后
+y = solar.read(x, ideal=False, normalize=True)
 ```
 
-两个读出接口对应两种真实的探测方案：
+真实硬件测得的三组功率可以封装为 `SolarPowerReadout`，交给同一个 `decode()` 解码。
 
-| 方法 | 物理含义 |
-|---|---|
-| `read_coherent(x)` | 相干（零差）探测，需要本振光提供相位参考，能拿到**带符号**的实部 |
-| `read_intensity(x)` | 平方律直接探测后再加读出噪声，返回标定后的 `gain²·\|E\|²`，**符号信息丢失** |
+实现文件：[src/photonic_mzi/solar.py](src/photonic_mzi/solar.py)
 
-## 示例
+## 当前建模的非理想性
+
+- 每次曝光的公共日照波动；
+- 固定输入通道空间不均匀；
+- 固定的波长积分等效权重误差；
+- 正负探测臂固定增益失配；
+- 泊松光子计数噪声；
+- 正负探测器与参考探测器的加性读出噪声。
+
+这些参数用于验证误差语义和敏感度，不是完整的户外器件模型。
+
+## 是否用电
+
+固定透镜、滤光片、扩散片和固定权重掩模可以是无源的，日光提供光学信号能量。
+但可编程输入、可编程权重、TIA、差分电路、参考除法、ADC、控制与温度稳定通常需要电。
+
+所以严谨结论是：
+
+> 光学乘法与空间累加可以由日光和无源器件完成；完整的可编程数值处理器通常仍用电。
+
+当前模型使用归一化功率单位，没有建立瓦特、曝光时间或 J/MAC 模型。
+
+## 快速运行
 
 ```bash
-python examples/01_hello_photonic.py        # 最小可运行示例
-python examples/02_noise_and_calibration.py # 静态相移偏置与独立动态抖动
-python examples/03_neural_layer.py          # 拿光子芯片跑一层神经网络推理
-python examples/04_solar_incoherent.py       # 实验性非相干日光强度矩阵乘加
+python examples/04_solar_incoherent.py
+python -m pytest tests/test_solar.py -q
+python -m pytest -m "not slow" -q
 ```
 
-`02` 的实测结果，说明为什么必须把两类误差分开建模：
+当前验证状态：
 
-| 简化模型构成 | 未校准 | 校准后 |
-|---|---:|---:|
-| 只有静态相移控制偏置 (fab 0.02 rad) | 4.2 bit | **48.0 bit**¹ |
-| 只有独立动态相位抖动 (drift 0.02 rad) | 3.9 bit | 3.9 bit |
-| 两者都有 (fab 0.02 + drift 0.005) | 4.2 bit | 5.9 bit |
+- 日光专项：18 项通过；
+- 快速套件：146 项通过，5 项既有动画慢测跳过；
+- Ruff：全部通过。
 
-¹ 48 bit 只表示“已知加性偏置被其精确负值抵消”的数值结果，不能外推成真实分束器
-制造误差或真实芯片的可校准精度。
+## 文档导航
 
-`03` 的实测结果，只说明这个类别间隔较大的合成任务在一定噪声下仍能保持分类结果：
+- [日光实验 API、噪声语义与边界](docs/solar-experiment.zh-CN.md)
+- [完整理论与光处理器设计](docs/solar-processor-design.zh-CN.md)
+- [可运行示例](examples/04_solar_incoherent.py)
+- [专项测试](tests/test_solar.py)
+- [主线相干 MZI 中文 README](https://github.com/yaoniming3k/photonic-mzi/blob/main/README.zh-CN.md)
 
-| 独立相位抖动 (rad) | logit 相对误差 | 有效 bit | 分类准确率 |
-|---:|---:|---:|---:|
-| 0.01 | 2.01% | 5.6 | 1.000 |
-| 0.05 | 10.49% | 3.3 | 1.000 |
-| 0.10 | 22.76% | 2.1 | 1.000 |
-| 0.20 | 50.68% | 1.0 | 0.925 |
-| 0.40 | 86.28% | 0.2 | 0.383 |
+## 当前明确不做
 
-这里每个 batch 列都有独立抖动。该任务是类别间隔较大的合成数据，结果不能外推到
-其他模型、真实数据集或具有时间相关性的热漂移。
+- 不把日光塞进相干 MZI 传播模型；
+- 不制作日光动画或 GIF；
+- 不在缺少真实器件光谱数据时选择滤光片；
+- 不声称零耗电、户外有效 bit、TOPS 或能效优势；
+- 不把理想浮点一致性当作硬件已经可行的证据。
 
-## 测试
-
-```bash
-pytest -m "not slow"
-```
-
-146 项快速用例。完整套件共 151 项（含逐帧字形扫描与 GIF 导出）。
-
-测试覆盖：退化 / 结构化矩阵、随机稠密、非方阵、批量、能量守恒、
-噪声语义（固定偏置、每样本独立抖动、固定 VOA 误差）、光场/探测分层、校准边界、
-严格输入校验，以及退化和结构化矩阵边界。
-
-```bash
-python benchmarks/bench_decomposition.py
-```
-
-## 实验性日光后端
-
-分支中的 `IncoherentSolarProcessor` 是与 MZI 处理器并列的实验模型：它把日光视为
-非相干功率载波，用强度透过率完成乘法、探测器功率汇聚完成加法，并用正负双轨支持
-任意实数矩阵。同步参考通道只能消除公共模日照波动，不能消除空间、光谱或差分臂失配。
-
-完整的代数、噪声语义和未验证边界见
-[实验性日光矩阵乘加](docs/solar-experiment.zh-CN.md)；更完整的理论与硬件设计见
-[非相干日光矩阵乘加：理论与光处理器实现](docs/solar-processor-design.zh-CN.md)。
-
----
-
-## 已知限制
-
-- 用的是 **Reck 三角网格**，不是 Clements 矩形网格。两者 MZI 数量相同（`N(N-1)/2`），
-  但 Clements 光学深度更低且通常对均匀损耗更稳健；当前版本尚未实现。
-- `fab_*` 只表示加性相移控制偏置，不表示会限制可达分光比的分束器制造偏差；
-  `calibrate()` 也不补偿 VOA 误差或插损。
-- `drift_*` 是每输入样本独立的相位抖动，不描述真实热漂移的时间相关、空间相关和串扰。
-- `detector_snr_db` 是探测后的等效 AWGN；没有散粒噪声、本振、响应度和带宽模型。
-- `mode_mzi_count()` 只是空间模式参与器件数，报告中的损耗是串联上界估计，
-  不是端到端光路追踪。
-- 前向传播仍是 Python 里逐台 MZI 循环。同一列的 MZI 天然可并行，向量化后还能再快一个量级。
-- 没有建模输入调制器、激光功率、DAC/ADC、系统能耗/延迟、波长相关性、偏振、
-  非线性和器件间串扰。因此不能用本项目定量预测商用芯片性能。
-
-## 参考
-
-更完整的模型边界与验证方法见 [技术验证说明](https://github.com/yaoniming3k/photonic-mzi/blob/main/docs/validation.zh-CN.md)。
-
-- Reck et al., *Experimental realization of any discrete unitary operator*, PRL 73, 58 (1994)
-- Clements et al., *Optimal design for universal multiport interferometers*, Optica 3, 1460 (2016)
-- Shen et al., *Deep learning with coherent nanophotonic circuits*, Nature Photonics 11, 441 (2017)
-
-## License
-
-[MIT](https://github.com/yaoniming3k/photonic-mzi/blob/main/LICENSE)
+下一阶段应先在受控非相干光源或太阳模拟器台架上验证双轨、参考归一化、线性区和
+校准流程，再进入真实日光实验。
