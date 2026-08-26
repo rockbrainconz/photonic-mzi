@@ -163,6 +163,7 @@ opu.read_coherent(x, ideal=False)  # 校准后
 python examples/01_hello_photonic.py        # 最小可运行示例
 python examples/02_noise_and_calibration.py # 静态相移偏置与独立动态抖动
 python examples/03_neural_layer.py          # 拿光子芯片跑一层神经网络推理
+python examples/04_solar_incoherent.py       # 实验性非相干日光强度矩阵乘加
 ```
 
 `02` 的实测结果，说明为什么必须把两类误差分开建模：
@@ -195,7 +196,7 @@ python examples/03_neural_layer.py          # 拿光子芯片跑一层神经网�
 pytest -m "not slow"
 ```
 
-128 项快速用例，约 3 秒。完整套件共 133 项（含逐帧字形扫描与 GIF 导出）。
+146 项快速用例。完整套件共 151 项（含逐帧字形扫描与 GIF 导出）。
 
 测试覆盖：退化 / 结构化矩阵、随机稠密、非方阵、批量、能量守恒、
 噪声语义（固定偏置、每样本独立抖动、固定 VOA 误差）、光场/探测分层、校准边界、
@@ -204,6 +205,16 @@ pytest -m "not slow"
 ```bash
 python benchmarks/bench_decomposition.py
 ```
+
+## 实验性日光后端
+
+分支中的 `IncoherentSolarProcessor` 是与 MZI 处理器并列的实验模型：它把日光视为
+非相干功率载波，用强度透过率完成乘法、探测器功率汇聚完成加法，并用正负双轨支持
+任意实数矩阵。同步参考通道只能消除公共模日照波动，不能消除空间、光谱或差分臂失配。
+
+完整的代数、噪声语义和未验证边界见
+[实验性日光矩阵乘加](docs/solar-experiment.zh-CN.md)；更完整的理论与硬件设计见
+[非相干日光矩阵乘加：理论与光处理器实现](docs/solar-processor-design.zh-CN.md)。
 
 ---
 

@@ -165,6 +165,7 @@ The two readout methods represent different detection schemes:
 python examples/01_hello_photonic.py
 python examples/02_noise_and_calibration.py
 python examples/03_neural_layer.py
+python examples/04_solar_incoherent.py
 ```
 
 The third example uses a synthetic, well-separated classification problem. Its
@@ -178,10 +179,22 @@ pytest -m "not slow"
 python benchmarks/bench_decomposition.py
 ```
 
-The fast suite contains 128 tests; the full suite contains 133 tests, including
+The fast suite contains 146 tests; the full suite contains 151 tests, including
 all-frame glyph checks and GIF export. Coverage includes degenerate and structured
 matrices, random dense and rectangular matrices, batching, energy conservation,
 noise semantics, detection boundaries, calibration boundaries, and input validation.
+
+## Experimental sunlight backend
+
+`IncoherentSolarProcessor` is a separate experimental model, not an MZI source option.
+It treats sunlight as an incoherent power carrier, uses intensity transmission for
+multiplication, detector power accumulation for addition, and signed dual rails for
+arbitrary real matrices. A simultaneous reference cancels only common-mode irradiance.
+
+See [Experimental sunlight matrix multiply-accumulate](docs/solar-experiment.md) for
+the API and noise semantics, and
+[Incoherent sunlight MAC: theory and processor design](docs/solar-processor-design.md)
+for the derivation and hardware boundaries.
 
 ## Known limitations
 

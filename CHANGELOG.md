@@ -7,6 +7,19 @@ and [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Added the isolated experimental `IncoherentSolarProcessor` backend for signed
+  dual-rail intensity MAC with simultaneous reference normalization.
+- Added separate spatial, wavelength-integrated weight, differential-arm, photon-count,
+  detector, and reference non-idealities for the sunlight experiment.
+- Added a bilingual model-boundary document, runnable example, and 18 focused tests.
+- Documented the full signed derivation, common-mode normalization theorem, broadband
+  failure conditions, passive/programmed hardware variants, electrical boundary,
+  calibration sequence, and experimental acceptance criteria.
+- Split the sunlight API into explicit optical-power, detection, and decoding stages so
+  measured hardware powers can reuse the same decoder.
+
 ## [1.0.1] - 2026-08-24
 
 ### Fixed
