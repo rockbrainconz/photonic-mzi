@@ -1,3 +1,8 @@
+> [!IMPORTANT]
+> You are viewing the experimental `experiment/solar-incoherent` branch. Its sunlight
+> intensity processor uses a different physical principle from the coherent MZI backend.
+> Start with the [sunlight branch overview](README.solar.md).
+
 <div align="center">
 
 # photonic-mzi

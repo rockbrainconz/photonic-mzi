@@ -1,3 +1,7 @@
+> [!IMPORTANT]
+> 当前是实验性 `experiment/solar-incoherent` 分支。日光强度处理器与主线相干 MZI
+> 处理器使用不同的物理原理，请先阅读[日光分支介绍](README.solar.zh-CN.md)。
+
 <div align="center">
 
 # photonic-mzi

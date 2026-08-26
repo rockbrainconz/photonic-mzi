@@ -19,6 +19,8 @@ and [Semantic Versioning](https://semver.org/).
   calibration sequence, and experimental acceptance criteria.
 - Split the sunlight API into explicit optical-power, detection, and decoding stages so
   measured hardware powers can reuse the same decoder.
+- Added branch-specific English and Chinese sunlight landing pages while preserving the
+  main project README as the canonical MZI introduction.
 
 ## [1.0.1] - 2026-08-24
 
